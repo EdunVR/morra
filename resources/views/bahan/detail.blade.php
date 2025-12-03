@@ -13,6 +13,7 @@
                         <th>Tanggal</th>
                         <th>Harga Beli</th>
                         <th>Stok</th>
+                        <th width="15%"><i class="fa fa-cog"></i>Aksi</th>
                     </thead>
                 </table>
             </div>

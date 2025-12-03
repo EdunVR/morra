@@ -13,4 +13,14 @@ class LaporanPenjualan extends Model
     protected $primaryKey = 'id_laporan';
     protected $guarded = [];
 
+    public function outlet()
+    {
+        return $this->belongsTo(Outlet::class, 'id_outlet');
+    }
+
+    public function penjualan()
+    {
+        return $this->belongsTo(Penjualan::class, 'id_penjualan', 'id_penjualan');
+    }
+
 }

@@ -15,10 +15,18 @@ Pembelian Bahan
     <div class="col-md-12">
         <div class="box">
             <div class="box-header with-border">
+                @if($outlets->count() > 1)
+                <div class="form-group">
+                    <label for="id_outlet">Pilih Outlet</label>
+                    <select name="id_outlet" id="id_outlet" class="form-control">
+                        <option value="">Semua Outlet</option>
+                        @foreach ($outlets as $outlet)
+                            <option value="{{ $outlet->id_outlet }}">{{ $outlet->nama_outlet }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
                 <button onclick="addForm()" class="btn btn-success btn-xs btn-flat"><i class="fa fa-plus-circle"></i>Transaksi Baru</button>
-                <!-- @empty(! session('id_pembelian'))
-                <a href="{{ route('pembelian_detail.index') }}" class="btn btn-info btn-xs btn-flat"><i class="fa fa-pencil"></i> Transaksi Aktif</a>
-                @endempty -->
             </div>
             <!-- /.box-header -->
             <div class="box-body table-responsive">
@@ -26,6 +34,7 @@ Pembelian Bahan
                     <thead>
                         <th width="5%">No</th>
                         <th>Tanggal</th>
+                        <th>Outlet</th>
                         <th>Supplier</th>
                         <th>Total Item</th>
                         <th>Total Harga</th>
@@ -57,6 +66,9 @@ Pembelian Bahan
                         autoWidth: false,
                         ajax: {
                             url: '{{ route('pembelian.data') }}',
+                            data: function (d) {
+                                d.id_outlet = $('#id_outlet').val();
+                            }
                         },
                         columns: [{
                                 data: 'DT_RowIndex',
@@ -66,6 +78,7 @@ Pembelian Bahan
                             {
                                 data: 'tanggal'
                             },
+                            { data: 'nama_outlet' }, 
                             {
                                 data: 'supplier'
                             },
@@ -114,6 +127,24 @@ Pembelian Bahan
                         ]
                     })
 
+                    $('#id_outlet').on('change', function () {
+                        table.ajax.reload();
+                        var id_outlet = $(this).val();
+                        $.ajax({
+                            url: '{{ route('pembelian.index') }}',
+                            type: 'GET',
+                            data: {
+                                id_outlet: id_outlet
+                            },
+                            success: function(response) {
+                                $('#modal-supplier').html($(response).find('#modal-supplier').html());
+                            },
+                            error: function(xhr, status, error) {
+                                console.log("Gagal memuat data member:", error);
+                            }
+                        });
+                    });
+
 
                 });
 
@@ -139,6 +170,7 @@ Pembelian Bahan
                                 table.ajax.reload();
                             })
                             .fail((errors) => {
+                                console.log(errors);
                                 alert('Tidak dapat menghapus data');
                                 return;
                             })

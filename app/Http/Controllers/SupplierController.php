@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Supplier;
 use Illuminate\Http\Request;
+use App\Models\Outlet;
 
 class SupplierController extends Controller
 {
@@ -12,15 +13,37 @@ class SupplierController extends Controller
      */
     public function index()
     {
-        return view('supplier.index');
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $outlets = Outlet::when($userOutlets, function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+
+        return view('supplier.index', compact('outlets', 'userOutlets'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
-        $supplier = Supplier::latest()->get();
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $selectedOutlet = $request->id_outlet;
+
+        $supplier = Supplier::when($userOutlets, function ($query) use ($userOutlets, $selectedOutlet) {
+            // Filter berdasarkan akses outlet user
+            $query->whereIn('id_outlet', $userOutlets);
+
+            // Jika ada outlet yang dipilih, filter berdasarkan outlet tersebut
+            if ($selectedOutlet) {
+                $query->where('id_outlet', $selectedOutlet);
+            }
+
+            return $query;
+        })->latest()->get();
+
         $data = datatables()
             ->of($supplier)
             ->addIndexColumn()
+            ->addColumn('nama_outlet', function ($kategori) {
+                return $kategori->outlet ? $kategori->outlet->nama_outlet : '-';
+            })
             ->addColumn('hutang', function ($supplier) {
                 return '<span class="label label-danger">'. format_uang($supplier->hutang) .'</span>';
             })
@@ -51,7 +74,15 @@ class SupplierController extends Controller
      */
     public function store(Request $request)
     {
-        $supplier = Supplier::create($request->all());
+        \Log::info('Supplier Store Request', $request->all());
+        
+        $data = $request->only(['nama', 'alamat', 'telepon', 'email', 'bank', 'no_rekening', 'atas_nama']);
+        $data['id_outlet'] = $request->id_outlet ?? auth()->user()->akses_outlet[0];
+        
+        $supplier = Supplier::create($data);
+        
+        \Log::info('Supplier Saved', $supplier->toArray());
+        
         return response()->json('Data berhasil disimpan', 200);
     }
 
@@ -77,11 +108,17 @@ class SupplierController extends Controller
      */
     public function update(Request $request, string $id)
     {
+        \Log::info('Supplier Update Request', ['id' => $id, 'data' => $request->all()]);
+        
         $supplier = Supplier::find($id);
-        $supplier->nama = $request->nama;
-        $supplier->alamat = $request->alamat;
-        $supplier->telepon = $request->telepon;
-        $supplier->update();
+        
+        $data = $request->only(['nama', 'alamat', 'telepon', 'email', 'bank', 'no_rekening', 'atas_nama']);
+        $data['id_outlet'] = $request->id_outlet ?? auth()->user()->akses_outlet[0];
+        
+        $supplier->update($data);
+        
+        \Log::info('Supplier Updated', $supplier->fresh()->toArray());
+        
         return response()->json('Data berhasil diupdate', 200);
     }
 

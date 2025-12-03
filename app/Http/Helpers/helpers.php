@@ -6,11 +6,21 @@ function format_uang($angka){
     return $hasil_rupiah;
 }
 
+function format_nomor($angka){
+
+    $hasil_rupiah = number_format($angka,0,',','.');
+    return $hasil_rupiah;
+}
+
 function tanggal_indonesia($tgl, $tampil_hari = true) {
     $nama_hari = array('Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu');
     $nama_bulan = array(1 =>
         'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     );
+
+    if (empty($tgl)) {
+        $tgl = '2024-11-11';
+    }
 
     $tahun = substr($tgl, 0, 4);
     $bulan = (int)substr($tgl, 5, 2); // Ambil bulan sebagai integer
@@ -57,4 +67,19 @@ function terbilang($angka){
 function tambah_nol_didepan($value, $threshold = null)
 {
     return sprintf("%0". $threshold . "s", $value);
+}
+
+if (!function_exists('hasAnyAccess')) {
+    function hasAnyAccess(array $permissions): bool
+    {
+        $userAccess = Auth::user()->akses ?? [];
+        
+        foreach ($permissions as $permission) {
+            if (in_array($permission, $userAccess)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
 }

@@ -10,6 +10,8 @@ use App\Models\Pembelian;
 use App\Models\Hutang;
 use Illuminate\Support\Facades\DB;
 use App\Models\BahanDetail;
+use App\Models\Outlet;
+use Illuminate\Support\Facades\Log;
 
 class PembelianDetailController extends Controller
 {
@@ -19,19 +21,31 @@ class PembelianDetailController extends Controller
     public function index()
     {
         $id_pembelian = session('id_pembelian');
-        // $bahan = Bahan::orderBy('nama_bahan')->get();
-        $supplier = Supplier::find(session('id_supplier'));
+        $supplier = Supplier::with('outlet')->find(session('id_supplier'));
+        $selectedOutlet = session('id_outlet');
         $diskon = Pembelian::find($id_pembelian)->diskon ?? 0;
-        $bahan = DB::table('bahan')
-            ->select('bahan.id_bahan', 'bahan.nama_bahan', 'bahan.merk', DB::raw('SUM(harga_bahan.stok) as stok'))
-            ->leftJoin('harga_bahan', 'bahan.id_bahan', '=', 'harga_bahan.id_bahan')
-            ->groupBy('bahan.id_bahan', 'bahan.nama_bahan', 'bahan.merk')
-            ->get();
+
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $outlets = Outlet::when($userOutlets, function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+
+        $bahan = Bahan::when($userOutlets, function ($query) use ($userOutlets, $selectedOutlet) {
+            $query->whereIn('bahan.id_outlet', $userOutlets);
+            if ($selectedOutlet) {
+                $query->where('bahan.id_outlet', $selectedOutlet);
+            }
+            return $query;
+        })
+        ->select('bahan.id_bahan', 'bahan.nama_bahan', 'bahan.merk', DB::raw('SUM(harga_bahan.stok) as stok'))
+        ->leftJoin('harga_bahan', 'bahan.id_bahan', '=', 'harga_bahan.id_bahan')
+        ->groupBy('bahan.id_bahan', 'bahan.nama_bahan', 'bahan.merk')
+        ->latest('bahan.created_at')->get();
 
         if(! $supplier){
             abort(404);
         }
-        return view('pembelian_detail.index', compact('id_pembelian', 'bahan', 'supplier', 'diskon'));
+        return view('pembelian_detail.index', compact('id_pembelian', 'bahan', 'supplier', 'diskon', 'outlets', 'userOutlets'));
     }
 
     /**
@@ -55,7 +69,13 @@ class PembelianDetailController extends Controller
             $row = array();
             $row['nama_bahan'] = '<span class="label label-success">'. $item->bahan['nama_bahan'] .'</span';
             $row['harga_beli']  = format_uang($item->harga_beli);
-            $row['jumlah']      = '<input type="number" class="form-control input-sm quantity" data-id="'. $item->id_pembelian_detail .'" value="'. $item->jumlah .'">';
+            $row['jumlah']      = '
+            <div class="input-group">
+                <input type="number" class="form-control input-sm quantity" data-id="'. $item->id_pembelian_detail .'" value="'. $item->jumlah .'" readonly>
+                <span class="input-group-btn">
+                    <button onclick="editJumlah('. $item->id_pembelian_detail .')" class="btn btn-xs btn-warning btn-flat"><i class="fa fa-pencil"></i></button>
+                </span>
+            </div>';
             $row['subtotal']    = format_uang($item->subtotal);
             $row['aksi']        = '<div class="btn-group">
                                     <button onclick="deleteData(`'. route('pembelian_detail.destroy', $item->id_pembelian_detail) .'`)" class="btn btn-xs btn-danger btn-flat"><i class="fa fa-trash"></i></button>
@@ -96,8 +116,8 @@ class PembelianDetailController extends Controller
         $detail->id_pembelian = $request->id_pembelian;
         $detail->id_bahan = $bahan->id_bahan;
         $detail->harga_beli = $request->harga_beli;
-        $detail->jumlah = 1;
-        $detail->subtotal = $request->harga_beli;
+        $detail->jumlah = $request->jumlah;
+        $detail->subtotal = $request->harga_beli * $request->jumlah;
         $detail->id_harga_bahan = $request->id_harga_bahan;
         $detail->save();
 
@@ -191,6 +211,7 @@ class PembelianDetailController extends Controller
 
             Hutang::create([
                 'id_supplier' => $supplier->id_supplier,
+                'id_outlet' => $supplier->id_outlet ?? auth()->user()->akses_outlet[0],
                 'nama' => $supplier->nama, // Ambil nama dari supplier
                 'hutang' => $hutang, // Jumlah hutang yang baru
                 'status' => 'belum_lunas', // Status hutang
@@ -202,6 +223,7 @@ class PembelianDetailController extends Controller
 
             Hutang::create([
                 'id_supplier' => $supplier->id_supplier,
+                'id_outlet' => $supplier->id_outlet ?? auth()->user()->akses_outlet[0],
                 'nama' => $supplier->nama,
                 'hutang' => '-' .$hutangLama, // Jumlah hutang menjadi 0
                 'status' => 'lunas', // Status hutang
@@ -230,11 +252,16 @@ class PembelianDetailController extends Controller
                 return $detail->stok;
             })
             ->addColumn('aksi', function ($detail) {
+                $updateUrl = $detail->id ? route('pembelian_detail.edit_harga', $detail->id) : '#';
+                $deleteUrl = $detail->id ? route('pembelian_detail.destroy_harga', $detail->id) : '#';
+            
                 return '
                 <div class="btn-group">
+                    <button onclick="editForm_harga(`'. $updateUrl .'`)" class="btn btn-xs btn-info btn-flat"><i class="fa fa-pencil"></i></button>
+                    <button onclick="deleteData_harga(`'. $deleteUrl .'`)" class="btn btn-xs btn-danger btn-flat"><i class="fa fa-trash"></i></button>
                     <button onclick="pilihBahan('.$detail->id_bahan.', \''.$detail->bahan->nama.'\', '.$detail->harga_beli.', '.$detail->stok.', '.$detail->id.')" class="btn btn-xs btn-success btn-flat"><i class="fa fa-check-circle"></i> Pilih Harga</button>
                 </div>
-            ';
+                ';
             })
             ->rawColumns(['aksi'])
             ->make(true);
@@ -255,5 +282,48 @@ class PembelianDetailController extends Controller
         $hargaBahan->save();
 
         return response()->json(['message' => 'Harga bahan berhasil ditambahkan!'], 200);
+    }
+
+    public function updateJumlah(Request $request)
+    {
+        $detail = PembelianDetail::find($request->id_pembelian_detail);
+        if (!$detail) {
+            return response()->json(['success' => false, 'message' => 'Detail pembelian tidak ditemukan'], 404);
+        }
+
+        // Update jumlah dan subtotal
+        $detail->jumlah = $request->jumlah;
+        $detail->subtotal = $detail->harga_beli * $request->jumlah;
+        $detail->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function editHarga($id)
+    {
+        $bahanDetail = BahanDetail::find($id);
+
+        if (!$bahanDetail) {
+            return response()->json(['message' => 'Data tidak ditemukan'], 404);
+        }
+
+        return response()->json($bahanDetail);
+    }
+
+    public function updateHarga(Request $request, string $id)
+    {
+        $bahan_detail = BahanDetail::find($id);
+        try {
+            $bahan_detail->update($request->all());
+            return response()->json(['message' => 'Data berhasil diperbarui'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function destroyHarga(string $id)
+    {
+        BahanDetail::find($id)->delete();
+        return response(null, 204);
     }
 }

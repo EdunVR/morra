@@ -1,0 +1,25 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('bahan_detail', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('id_bahan');
+            $table->decimal('harga_beli', 15,2);
+            $table->decimal('stok', 15,2);
+            $table->timestamps();
+            $table->foreign('id_bahan')->references('id_bahan')->on('bahan')->onDelete('cascade');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('bahan_detail');
+    }
+};

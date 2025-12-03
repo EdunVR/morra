@@ -28,6 +28,11 @@
             padding-top: 5px;
         }
     }
+
+    .table-produk input.jumlah {
+        width: 70px; /* Sesuaikan lebar input */
+        text-align: center;
+    }
 </style>
 @endpush
 
@@ -44,19 +49,38 @@
                     
                 <form class="form-produk">
                     @csrf
+                    @if($outlets->count() > 1)
                     <div class="form-group row">
-                                <label for="nama_member" class="col-lg-2 control-label">Customer</label>
+                                <label for="id_outlet" class="col-lg-2 control-label">Pilih Outlet</label>
                                 <div class="col-lg-5">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="nama_member" value="{{ ! empty($memberSelected->nama ) ? $memberSelected->nama : 'Customer Umum' }}">
-                                        <span class="input-group-btn">
-                                            <button onclick="tampilMember()" class="btn btn-info btn-flat" type="button"><i class="fa fa-arrow-right"></i></button>
-                                        </span>
-                                    </div>
+                                    <select name="id_outlet" id="id_outlet" class="form-control">
+                                        <option value="">Pilih Outlet Terlebih Dahulu!</option>
+                                        @foreach ($outlets as $outlet)
+                                            <option value="{{ $outlet->id_outlet }}">{{ $outlet->nama_outlet }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
                             </div>
+                    @endif
                     <div class="form-group row">
-                        <label for="kode_produk" class="col-lg-2">Kode Produk</label>
+                        <label for="nama_member" class="col-lg-2 control-label">Customer</label>
+                        <div class="col-lg-5">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="nama_member" placeholder="Cari Customer..." value="{{ !empty($memberSelected->nama) ? $memberSelected->nama : '' }}">
+                                <span class="input-group-btn">
+                                    <button onclick="tampilMember()" class="btn btn-info btn-flat" type="button">
+                                        <i class="fa fa-search"></i>
+                                    </button>
+                                </span>
+                            </div>
+                            <!-- Hasil pencarian Customer -->
+                            <div id="hasil-pencarian-member" class="list-group" style="display: none;">
+                                <!-- Hasil pencarian akan muncul di sini -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="nama_produk" class="col-lg-2">Nama Produk</label>
                         <div class="col-lg-5">
                             <div class="input-group">
                                 <input type="hidden" name="id_penjualan" id="id_penjualan" value="{{ $id_penjualan }}">
@@ -64,10 +88,17 @@
                                 <input type="hidden" name="hpp" id="hpp">
                                 <input type="hidden" name="stok" id="stok">
                                 <input type="hidden" name="id_hpp" id="id_hpp">
-                                <input type="text" class="form-control" name="kode_produk" id="kode_produk">
+                                <input type="hidden" name="jumlah" id="jumlah" value="0">
+                                <input type="text" class="form-control" name="nama_produk" id="nama_produk" placeholder="Cari Produk...">
                                 <span class="input-group-btn">
-                                    <button onclick="tampilProduk()" class="btn btn-info btn-flat" type="button"><i class="fa fa-arrow-right"></i></button>
+                                    <button onclick="tampilProduk()" class="btn btn-info btn-flat" type="button">
+                                        <i class="fa fa-search"></i>
+                                    </button>
                                 </span>
+                            </div>
+                            <!-- Hasil pencarian Produk -->
+                            <div id="hasil-pencarian-produk" class="list-group" style="display: none;">
+                                <!-- Hasil pencarian akan muncul di sini -->
                             </div>
                         </div>
                     </div>
@@ -92,7 +123,7 @@
                         <div class="tampil-terbilang"></div>
                     </div>
                     <div class="col-lg-4">
-                        <form action="{{ route('transaksi.simpan', ['isChecked' => 'XXXX' ]) }}" class="form-penjualan" method="post">
+                        <form action="{{ route('transaksi.simpan') }}" class="form-penjualan" method="post">
                             @csrf
                             <input type="hidden" name="id_penjualan" value="{{ $id_penjualan }}">
                             <input type="hidden" name="total" id="total">
@@ -116,6 +147,11 @@
                                             <input type="checkbox" id="bayarDenganPiutang"> Bayar dengan Piutang
                                         </label>
                                     </div>
+                                    <div class="checkbox">
+                                        <label>
+                                            <input type="checkbox" id="ingatkanPiutang"> Ingatkan Piutang Customer
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="form-group row">
@@ -134,8 +170,15 @@
                             </div>
                             <div class="form-group row">
                                 <label for="diterima" class="col-lg-2 control-label">Diterima</label>
-                                <div class="col-lg-8">
+                                <div class="col-lg-6">
                                     <input type="number" id="diterima" class="form-control" name="diterima" value="{{ $penjualan->diterima ?? 0 }}">
+                                </div>
+                                <div class="col-lg-2">
+                                    <div class="checkbox">
+                                        <label>
+                                            <input type="checkbox" id="lunas"> Lunas
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="form-group row">
@@ -159,6 +202,8 @@
 @includeIf('penjualan_detail.detail')
 @includeIf('penjualan_detail.produk')
 @includeIf('penjualan_detail.member')
+@includeIf('penjualan_detail.edit_jumlah')
+@includeIf('penjualan_detail.due_date_modal')
 @endsection
 
 @push('scripts')
@@ -168,7 +213,7 @@
     let selectedProductIds = [];
 
     $(function () {
-        $('body').addClass('sidebar-collapse');
+        // $('body').addClass('sidebar-collapse');
 
         table = $('.table-penjualan').DataTable({
             responsive: true,
@@ -214,6 +259,48 @@
                         {data: 'aksi', searchable: false, sortable: false},
                     ]
                 });
+
+        const allMembers = @json($member); 
+        const allProduk = @json($produk); 
+
+        let members = allMembers;
+        let produk = allProduk; 
+
+        function filterDataByOutlet(id_outlet) {
+            if (id_outlet) {
+                // Filter data berdasarkan outlet
+                members = allMembers.filter(member => member.id_outlet == id_outlet);
+                produk = allProduk.filter(produk => produk.id_outlet == id_outlet);
+            } else {
+                // Jika tidak ada outlet yang dipilih, gunakan semua data
+                members = allMembers;
+                produk = allProduk;
+            }
+        }
+        
+        $('#id_outlet').on('change', function () {
+            var id_outlet = $(this).val();
+            filterDataByOutlet(id_outlet); 
+            
+            $.ajax({
+                url: '{{ route('transaksi.index') }}',
+                type: 'GET',
+                data: {
+                    id_outlet: id_outlet
+                },
+                success: function(response) {
+                    // Reload modal member dengan data yang baru
+                    $('#modal-member').html($(response).find('#modal-member').html());
+                    $('#modal-produk').html($(response).find('#modal-produk').html());
+                },
+                error: function(xhr, status, error) {
+                    console.log("Gagal memuat data member:", error);
+                }
+            });
+        });
+
+        const initialOutlet = $('#id_outlet').val();
+        filterDataByOutlet(initialOutlet);
 
         $(document).on('input', '.quantity', function () {
             let id = $(this).data('id');
@@ -262,26 +349,46 @@
             loadForm($('#diskon').val(), $(this).val());
         });
 
+        $('#lunas').on('change', function () {
+            if ($(this).is(':checked')) {
+                const bayarrp = $('#bayarrp').val().replace(/[^\d]/g, '') || 0;
+                $('#diterima').val(bayarrp).trigger('input');
+            } else {
+                // Jika checkbox tidak dicentang, reset nilai diterima
+                $('#diterima').val(0).trigger('input');
+            }
+        });
+
         $('.btn-simpan').on('click', function () {
             var isChecked = $('#bayarDenganPiutang').is(':checked') ? 'true' : 'false';
+            var isCheckedIngatkan = $('#ingatkanPiutang').is(':checked') ? 'true' : 'false';
             var piutang = $('#piutangHidden').val();
-            // Setelah transaksi disimpan, perbarui piutang
-            $.post('{{ route('transaksi.updatePiutang') }}', {
-                '_token': $('[name=csrf-token]').attr('content'),
-                'id_member': $('#id_member').val(),
-                'bayar': $('#bayar').val(), // Pastikan ini diisi dengan nilai yang benar
-                'diterima': $('#diterima').val(), // Pastikan ini diisi dengan nilai yang benar
-                'isChecked': isChecked,
-                'piutang': piutang
-            })
-            .done(response => {
-                $('.form-penjualan').submit();
-                alert(response); // Tampilkan pesan sukses
-            })
-            .fail(errors => {
-                console.log(errors);
-                alert('Gagal memperbarui piutang');
-            });
+            var isLunas = $('#lunas').is(':checked');
+
+            if($('#id_member').val() == "") {
+                return $('.form-penjualan').submit();
+            }
+
+            if (!isLunas) {
+                $('#modal-due-date').modal('show');
+                
+                // Handle due date submission
+                $('#btn-save-due-date').off('click').on('click', function() {
+                    const tanggalTempo = $('#tanggal_tempo').val();
+                    if (!tanggalTempo) {
+                        alert('Silakan pilih tanggal jatuh tempo');
+                        return;
+                    }
+
+                    // Proceed with saving after selecting due date
+                    saveTransaction(isChecked, isCheckedIngatkan, piutang, tanggalTempo);
+                    $('#modal-due-date').modal('hide');
+                });
+            } else {
+                // For cash transactions, proceed directly
+                saveTransaction(isChecked, isCheckedIngatkan, piutang);
+            }
+            
         });
 
         $('#bayarDenganPiutang').change(function() {
@@ -303,12 +410,72 @@
             
             loadForm($('#diskon').val(), diterima, isChecked);
         });
+
+        
+
+        $('#nama_member').on('input', function() {
+            const keyword = $(this).val().toLowerCase(); // Ambil nilai dari input
+            const hasilPencarian = $('#hasil-pencarian-member');
+            hasilPencarian.empty(); // Kosongkan hasil sebelumnya
+
+            if (keyword.length >= 2) { // Mulai pencarian setelah 2 karakter
+                const filteredMembers = members.filter(member => 
+                    member.nama.toLowerCase().includes(keyword) || 
+                    member.telepon.toLowerCase().includes(keyword)
+                );
+
+                if (filteredMembers.length > 0) {
+                    filteredMembers.forEach(member => {
+                        hasilPencarian.append(`
+                            <a href="#" class="list-group-item list-group-item-action"
+                                onclick="pilihMember('${member.id_member}', '${member.nama}', '${member.piutang}', '${member.id_tipe}')">
+                                ${member.nama} - ${member.telepon}
+                            </a>
+                        `);
+                    });
+                    hasilPencarian.show(); // Tampilkan hasil pencarian
+                } else {
+                    hasilPencarian.hide(); // Sembunyikan jika tidak ada hasil
+                }
+            } else {
+                hasilPencarian.hide(); // Sembunyikan jika input kurang dari 2 karakter
+            }
+        });
+
+        $('#nama_produk').on('input', function() {
+            const keyword = $(this).val().toLowerCase();
+            const hasilPencarian = $('#hasil-pencarian-produk');
+            hasilPencarian.empty();
+
+            if (keyword.length >= 2) {
+                const filteredProduk = produk.filter(produk => 
+                    produk.nama_produk.toLowerCase().includes(keyword)
+                );
+
+                if (filteredProduk.length > 0) {
+                    filteredProduk.forEach(produk => {
+                        hasilPencarian.append(`
+                            <a href="#" class="list-group-item list-group-item-action"
+                                onclick="pilihProduk('${produk.id_produk}', '${produk.nama_produk}', '${produk.hpp_produk_sum_stok}')">
+                                ${produk.nama_produk} - Stok: ${produk.hpp_produk_sum_stok}
+                            </a>
+                        `);
+                    });
+                    hasilPencarian.show();
+                } else {
+                    hasilPencarian.hide();
+                }
+            } else {
+                hasilPencarian.hide();
+            }
+        });
         
 
     });
 
     function tampilProduk() {
         $('#modal-produk').modal('show');
+
     }
 
     function hideProduk() {
@@ -333,15 +500,24 @@
             //     tambahBahan();
             // }
 
-    function pilihProduk(id, kode, hpp, stok, id_hpp) {
+    function pilihProduk(id, kode, stok) {
+        $('#hasil-pencarian-produk').hide();
+
+        stok = parseInt(stok) || 0;
+        let jumlah = parseInt($(`input[data-id="${id}"]`).val()) || 0;  
+
         $('#id_produk').val(id);
-        $('#id_hpp').val(id_hpp);
+        //$('#id_hpp').val(0);
         $('#kode_produk').val(kode);
-        $('#hpp').val(hpp);
         $('#stok').val(stok);
+        $('#jumlah').val(jumlah);
+
+        console.log("Stok: ", stok);
+        console.log("Jumlah: ", jumlah);
         // Validasi stok
-        if (stok <= 0) {
-            alert('Produk tidak dapat ditambahkan karena stok habis.');
+        if (stok < jumlah) {
+            console.log(stok, "<", jumlah);
+            alert('Produk tidak dapat ditambahkan karena stok tidak mencukupi XX');
             return; // Menghentikan eksekusi jika stok 0
         }
 
@@ -351,22 +527,27 @@
 
         console.log("Produk dipilih:", selectedProductIds);
 
-        $('#modal-detail').modal('hide');
         tambahProduk();
     }
 
     function tambahProduk() {
         const id_member = $('#id_member').val();
+        const jumlah = $('#jumlah').val();
+
         $.post('{{ route('transaksi.store') }}', {
             ...$('.form-produk').serializeArray().reduce((obj, item) => {
                 obj[item.name] = item.value;
                 return obj;
             }, {}),
-            id_member: id_member // Tambahkan id_member
+            id_member: id_member,
+            jumlah: jumlah
         })
             .done(response => {
                 $('#kode_produk').focus();
                 table.ajax.reload(() => loadForm($('#diskon').val()));
+
+                hideProduk();
+                loadProduk();
             })
             .fail(errors => {
                 console.log(errors);
@@ -375,11 +556,26 @@
             });
     }
 
+    function loadProduk() {
+        $.ajax({
+            url: '{{ route('transaksi.index') }}',
+            type: 'GET',
+            success: function(response) {
+                $('#modal-produk').html($(response).find('#modal-produk').html());
+            },
+            error: function(xhr, status, error) {
+                console.log("Gagal memuat data produk:", error);
+            }
+        });
+    }
+
     function tampilMember() {
         $('#modal-member').modal('show');
     }
 
     function pilihMember(id, nama, piutang, tipe_id) {
+        $('#hasil-pencarian-member').hide();
+
         $('#id_member').val(id);
         $('#nama_member').val(nama);
         $('#piutang').val(piutang);
@@ -389,13 +585,21 @@
         var id_member = $('#id_member').val();
         var produkIds = [];
 
-        // $('.table-penjualan tbody tr').slice(0, -1).each(function(index) {
-        //     var id_produk = selectedProductIds[index];
-        //     console.log(id_produk);
-        //     if (id_produk) {
-        //         updateDiscount(id_produk, id, $(this)); // Kirim elemen baris untuk update
-        //     }
-        // });
+        $.ajax({
+            url: '{{ route('transaksi.index') }}', // Ganti dengan route yang sesuai
+            type: 'GET', // Atau POST jika diperlukan
+            data: {
+                id_tipe: tipe_id
+            },
+            success: function(response) {
+                $('#modal-produk').html($(response).find('#modal-produk').html());
+                console.log("Data produk berhasil diperbarui.");
+            },
+            error: function(xhr, status, error) {
+                console.log("Gagal mengirim data ke index:", error);
+            }
+        });
+        
         $.ajax({
             url: '{{ route('hapus.produk') }}',
             type: 'POST',
@@ -417,12 +621,7 @@
             }
         });
 
-        // selectedProductIds = []; // Kosongkan array
-        // $('.table-penjualan tbody').empty(); // Reload tabel untuk menghapus data yang ditampilkan
-
-        // // Reset input produk
-        // $('#id_produk').val('');
-        // $('#kode_produk').val('');
+        
 
         loadForm($('#diskon').val());
         $('#diterima').val(0).focus().select();
@@ -434,39 +633,28 @@
         $('#modal-member').modal('hide');
     }
 
-    // function updateDiscount(id_produk, id_member, row) {
-    //     $.get('{{ route('getDiscount') }}', { id_produk, id_member })
-    //         .done(response => {
-    //             const diskon = response.diskon;
-    //             const harga_jual = parseFloat(row.find('.harga_jual').data('harga')); // Ambil harga dari data attribute
-    //             // const subtotal = harga_jual - (diskon / 100 * harga_jual);
-    //             var subtotal = harga_jual * parseInt(row.find('.jumlah').val()) - (diskon / 100 * harga_jual * parseInt(row.find('.jumlah').val()));
-                
-    //             // Update diskon dan subtotal di baris
-    //             row.find('.diskon').text(diskon + '%');
-    //             row.find('.subtotal').text('XXX');
-    //         })
-    //         .fail(errors => {
-    //             console.log(errors);
-    //             alert('Error fetching discount');
-    //         });
-    // }
 
     function deleteData(url, id) {
         if (confirm('Yakin ingin menghapus data terpilih?')) {
-            $.post(url, {
-                    '_token': $('[name=csrf-token]').attr('content'),
-                    '_method': 'delete'
-                })
-                .done((response) => {
-                    selectedProductIds = selectedProductIds.filter(item => item !== id);
-                    console.log("Produk setelah dihapus:", selectedProductIds);
-                    table.ajax.reload(() => loadForm($('#diskon').val()));
-                })
-                .fail((errors) => {
-                    alert('Tidak dapat menghapus data');
-                    return;
-                });
+            $.ajax({
+                url: url,
+                type: 'DELETE',
+                data: {
+                    '_token': $('[name=csrf-token]').attr('content')
+                },
+                success: function(response) {
+                    console.log(response);
+                    table.ajax.reload(); // Reload tabel setelah menghapus
+                    loadProduk();
+                },
+                error: function(xhr, status, error) {
+                    if (xhr.status === 404) {
+                        alert('Data tidak ditemukan');
+                    } else {
+                        alert('Gagal menghapus data: ' + error);
+                    }
+                }
+            });
         }
     }
 
@@ -476,9 +664,11 @@
 
         var piutang = parseFloat($('#piutangHidden').val()) || 0; // Ambil nilai piutang
         var isChecked = $('#bayarDenganPiutang').is(':checked') ? 'true' : 'false';
+        var isCheckedIngatkan = $('#ingatkanPiutang').is(':checked') ? 'true' : 'false';
+        var total = parseFloat($('.total').text()) || 0;
         //var isChecked = $('#bayarDenganPiutang').is(':checked');
 
-        $.get(`{{ url('/transaksi/loadform') }}/${diskon}/${$('.total').text()}/${diterima}/${piutang}/${isChecked}`)
+        $.get(`{{ url('/transaksi/loadform') }}/${diskon}/${total}/${diterima}/${piutang}/${isChecked}/${isCheckedIngatkan}`)
             .done(response => {
                 $('#totalrp').val(response.totalrp);
                 $('#bayar').val(response.bayar);
@@ -494,8 +684,115 @@
                 }
             })
             .fail(errors => {
+                console.log(errors);
                 alert('Tidak dapat menampilkan data');
                 return;
+            });
+    }
+
+    // Fungsi untuk menampilkan modal edit jumlah
+    function editJumlah(id_penjualan_detail) {
+        // Ambil data jumlah saat ini
+        const jumlahSaatIni = $(`input[data-id="${id_penjualan_detail}"]`).val();
+
+        // Isi form edit jumlah
+        $('#edit_id_penjualan_detail').val(id_penjualan_detail);
+        $('#edit_jumlah').attr('placeholder', jumlahSaatIni).val('');
+
+        // Tampilkan modal
+        $('#modal-edit-jumlah').modal('show');
+    }
+
+    // Fungsi untuk menyimpan perubahan jumlah
+    function simpanEditJumlah() {
+        const id_penjualan_detail = $('#edit_id_penjualan_detail').val();
+        const jumlah = $('#edit_jumlah').val();
+
+        if (jumlah < 1) {
+            alert('Jumlah tidak boleh kurang dari 1');
+            return;
+        }
+
+        $.ajax({
+            url: '{{ route('transaksi.updateJumlah') }}', // Route untuk update jumlah
+            type: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+                id_penjualan_detail: id_penjualan_detail,
+                jumlah: jumlah
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Perbarui jumlah di tabel
+                    $(`input[data-id="${id_penjualan_detail}"]`).val(jumlah);
+
+                    // Perbarui subtotal dan total
+                    table.ajax.reload(() => loadForm($('#diskon').val()));
+                    loadProduk();
+
+                    // Sembunyikan modal
+                    $('#modal-edit-jumlah').modal('hide');
+                } else {
+                    alert('Gagal memperbarui jumlah');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.log("Gagal menyimpan perubahan:", error);
+                alert('Terjadi kesalahan saat menyimpan perubahan');
+            }
+        });
+    }
+
+    function saveTransaction(isChecked, isCheckedIngatkan, piutang, tanggalTempo = null) {
+        // Prepare form data
+        let formData = {
+            '_token': $('[name=csrf-token]').attr('content'),
+            'id_member': $('#id_member').val(),
+            'bayar': $('#bayar').val(),
+            'diterima': $('#diterima').val(),
+            'isChecked': isChecked,
+            'isCheckedIngatkan': isCheckedIngatkan,
+            'piutang': piutang,
+            'is_bon': $('#lunas').is(':checked') ? 0 : 1
+        };
+
+        // Add due date if provided
+        if (tanggalTempo) {
+            formData.tanggal_tempo = tanggalTempo;
+        }
+
+        // Update piutang and submit form
+        $.post('{{ route('transaksi.updatePiutang') }}', formData)
+            .done(response => {
+                // Add hidden fields for form submission
+                if (!formData.is_bon) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'is_bon',
+                        value: 0
+                    }).appendTo('.form-penjualan');
+                } else {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'is_bon',
+                        value: 1
+                    }).appendTo('.form-penjualan');
+                    
+                    if (tanggalTempo) {
+                        $('<input>').attr({
+                            type: 'hidden',
+                            name: 'tanggal_tempo',
+                            value: tanggalTempo
+                        }).appendTo('.form-penjualan');
+                    }
+                }
+
+                $('.form-penjualan').submit();
+                alert(response);
+            })
+            .fail(errors => {
+                console.log(errors);
+                alert('Gagal memperbarui piutang');
             });
     }
 

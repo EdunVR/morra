@@ -4,23 +4,42 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Pengeluaran;
+use App\Models\Outlet;
 
 class PengeluaranController extends Controller
 {
     public function index()
     {
-        return view('pengeluaran.index');
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $outlets = Outlet::when($userOutlets, function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+
+        return view('pengeluaran.index', compact('outlets', 'userOutlets'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
-        $pengeluaran = Pengeluaran::orderBy('id_pengeluaran', 'desc')->get();
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $selectedOutlet = $request->id_outlet;
+
+        $pengeluaran = Pengeluaran::when($userOutlets, function ($query) use ($userOutlets, $selectedOutlet) {
+            $query->whereIn('id_outlet', $userOutlets);
+            if ($selectedOutlet) {
+                $query->where('id_outlet', $selectedOutlet);
+            }
+
+            return $query;
+        })->latest()->get();
 
         return datatables()
             ->of($pengeluaran)
             ->addIndexColumn()
             ->addColumn('created_at', function ($pengeluaran) {
                 return tanggal_indonesia($pengeluaran->created_at, false);
+            })
+            ->addColumn('nama_outlet', function ($kategori) {
+                return $kategori->outlet ? $kategori->outlet->nama_outlet : '-';
             })
             ->addColumn('nominal', function ($pengeluaran) {
                 return format_uang($pengeluaran->nominal);
@@ -55,7 +74,12 @@ class PengeluaranController extends Controller
      */
     public function store(Request $request)
     {
-        $pengeluaran = Pengeluaran::create($request->all());
+
+        $pengeluaran = new Pengeluaran();
+        $pengeluaran->id_outlet = $request->id_outlet ?? auth()->user()->akses_outlet[0];
+        $pengeluaran->nominal = $request->nominal;
+        $pengeluaran->deskripsi = $request->deskripsi;
+        $pengeluaran->save();
 
         return response()->json('Data berhasil disimpan', 200);
     }
@@ -93,7 +117,11 @@ class PengeluaranController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $pengeluaran = Pengeluaran::find($id)->update($request->all());
+        $pengeluaran = Pengeluaran::find($id);
+        $pengeluaran->id_outlet = $request->id_outlet ?? auth()->user()->akses_outlet[0];
+        $pengeluaran->nominal = $request->nominal;
+        $pengeluaran->deskripsi = $request->deskripsi;
+        $pengeluaran->update();
 
         return response()->json('Data berhasil disimpan', 200);
     }

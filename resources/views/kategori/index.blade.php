@@ -15,6 +15,17 @@ Kategori
     <div class="col-md-12">
         <div class="box">
             <div class="box-header with-border">
+                @if($outlets->count() > 1)
+                <div class="form-group">
+                    <label for="id_outlet">Pilih Outlet</label>
+                    <select name="id_outlet" id="id_outlet" class="form-control">
+                        <option value="">Semua Outlet</option>
+                        @foreach ($outlets as $outlet)
+                            <option value="{{ $outlet->id_outlet }}">{{ $outlet->nama_outlet }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
                 <button onclick="addForm('{{ route('kategori.store') }}')"
                     class="btn-success btn-xs btn-flat"><i class="fa fa-plus-circle"></i> Tambah</button>
             </div>
@@ -24,6 +35,7 @@ Kategori
                     <thead>
                         <th width="5%">No</th>
                         <th>Kategori</th>
+                        <th>Outlet</th>
                         <th width="15%"><i class="fa fa-cog"></i>Aksi</th>
                     </thead>
                 </table>
@@ -45,7 +57,12 @@ Kategori
                 table = $('.table').DataTable({
                     processing: true,
                     autoWidth: false,
-                    ajax: '{{ route('kategori.data') }}',
+                    ajax: {
+                        url: '{{ route('kategori.data') }}',
+                        data: function (d) {
+                            d.id_outlet = $('#id_outlet').val();
+                        }
+                    },
                     columns: [{
                             data: 'DT_RowIndex',
                             searchable: false,
@@ -54,6 +71,7 @@ Kategori
                         {
                             data: 'nama_kategori'
                         },
+                        { data: 'nama_outlet' }, 
                         {
                             data: 'aksi',
                             name: 'aksi',
@@ -62,6 +80,10 @@ Kategori
                         },
                     ]
 
+                });
+
+                $('#id_outlet').on('change', function () {
+                    table.ajax.reload();
                 });
 
                 $('#modal-form form').validator().on('submit', function (e) {
@@ -102,7 +124,7 @@ Kategori
                 $.get(url)
                     .done((response) => {
                         $('#modal-form [name=nama_kategori]').val(response.nama_kategori);
-                        
+                        $('#modal-form [name=id_outlet]').val(response.id_outlet);
                     })
                     .fail((errors) => {
                         alert('Tidak dapat menyimpan data');

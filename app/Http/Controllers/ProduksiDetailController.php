@@ -82,11 +82,14 @@ class ProduksiDetailController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(ProduksiDetail $produksiDetail)
+    public function destroy($id)
     {
         $produksiDetail = ProduksiDetail::find($id);
-        $produksiDetail->delete();
+        if (!$produksiDetail) {
+            return response()->json(['message' => 'Data tidak ditemukan'], 404);
+        }
 
-        return response(null, 204);
+        $produksiDetail->delete();
+        return response()->json(['message' => 'Data berhasil dihapus'], 200);
     }
 }

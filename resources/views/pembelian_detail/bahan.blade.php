@@ -14,6 +14,7 @@
                         <th>Nama</th>
                         <th>Merk</th>
                         <th>Stok</th>
+                        <th>Jumlah</th>
                         <th width="15%"><i class="fa fa-cog"></i>Aksi</th>
                     </thead>
                     <tbody>
@@ -23,6 +24,13 @@
                             <td><span class="label label-success">{{ $item->nama_bahan }}</span></td>
                             <td>{{ $item->merk }}</td>
                             <td>{{ $item->stok ?? 0 }}</td>
+                            <td>
+                                    <input type="number" class="form-control input-sm jumlah" 
+                                           data-id="{{ $item->id_bahan }}" 
+                                           placeholder="0" 
+                                           min="0" 
+                                           >
+                                </td>
                             <td>
                                 <a href="#" class="btn btn-xs btn-info"
                                     onclick="pilihHarga('{{ route('getHargaBeli', $item->id_bahan) }}', '{{ $item->id_bahan }}')">

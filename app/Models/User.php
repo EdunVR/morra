@@ -29,6 +29,11 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'phone',
+        'avatar',
+        'role_id',
+        'is_active',
+        'last_login_at',
     ];
 
     /**
@@ -62,8 +67,129 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
+            'last_login_at' => 'datetime',
             'akses' => 'array',
+            'akses_outlet' => 'array',
+            'akses_khusus' => 'array',
         ];
+    }
+
+    // Relationships
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function userOutlets()
+    {
+        return $this->hasMany(UserOutlet::class);
+    }
+
+    public function outlets()
+    {
+        return $this->belongsToMany(Outlet::class, 'user_outlets', 'user_id', 'outlet_id');
+    }
+
+    public function activityLogs()
+    {
+        return $this->hasMany(UserActivityLog::class);
+    }
+
+    // Accessors
+    public function getOutletIdsAttribute()
+    {
+        return $this->outlets()->pluck('id_outlet')->toArray();
+    }
+
+    public function getRolesAttribute()
+    {
+        // Return role as collection for blade compatibility
+        return $this->role ? collect([$this->role]) : collect([]);
+    }
+
+    // Permission Methods
+    public function hasRole(string $roleName): bool
+    {
+        return $this->role && $this->role->name === $roleName;
+    }
+
+    public function hasPermission(string $permissionName): bool
+    {
+        if (!$this->role) {
+            return false;
+        }
+
+        // Super admin has all permissions
+        if ($this->role->name === 'super_admin') {
+            return true;
+        }
+
+        return $this->role->hasPermission($permissionName);
+    }
+
+    public function can($ability, $arguments = [])
+    {
+        // Check Laravel's built-in authorization first
+        if (parent::can($ability, $arguments)) {
+            return true;
+        }
+
+        // Check our custom permission system
+        return $this->hasPermission($ability);
+    }
+
+    public function hasAnyPermission(array $permissions): bool
+    {
+        foreach ($permissions as $permission) {
+            if ($this->hasPermission($permission)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function hasAllPermissions(array $permissions): bool
+    {
+        foreach ($permissions as $permission) {
+            if (!$this->hasPermission($permission)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function hasAccessToOutlet(int $outletId): bool
+    {
+        // Super admin has access to all outlets
+        if ($this->hasRole('super_admin')) {
+            return true;
+        }
+
+        return in_array($outletId, $this->outlet_ids);
+    }
+
+    public function updateLastLogin(): void
+    {
+        $this->update(['last_login_at' => now()]);
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeByRole($query, $roleId)
+    {
+        return $query->where('role_id', $roleId);
+    }
+
+    public function scopeHasOutletAccess($query, $outletId)
+    {
+        return $query->whereHas('outlets', function($q) use ($outletId) {
+            $q->where('outlet_id', $outletId);
+        });
     }
 
     public function scopeIsNotAdmin($query)

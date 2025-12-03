@@ -22,4 +22,9 @@ class PembelianDetail extends Model
     {
         return $this->hasMany(BahanDetail::class, 'id_bahan', 'id_bahan');
     }
+
+    public function outlet()
+    {
+        return $this->belongsTo(Outlet::class, 'id_outlet');
+    }
 }

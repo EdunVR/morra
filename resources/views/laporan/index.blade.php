@@ -30,6 +30,17 @@
     <div class="col-lg-12">
         <div class="box">
             <div class="box-header with-border">
+                @if($outlets->count() > 1)
+                <div class="form-group">
+                    <label for="id_outlet">Pilih Outlet</label>
+                    <select name="id_outlet" id="id_outlet" class="form-control">
+                        <option value="">Semua Outlet</option>
+                        @foreach ($outlets as $outlet)
+                            <option value="{{ $outlet->id_outlet }}">{{ $outlet->nama_outlet }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
                 <button onclick="updatePeriode()" class="btn btn-info btn-xs btn-flat"><i class="fa fa-plus-circle"></i> Ubah Periode</button>
                 <a id="exportPdf" href="#" target="_blank" class="btn btn-success btn-xs btn-flat"><i class="fa fa-file-excel-o"></i> Export PDF</a>
             </div>
@@ -78,6 +89,9 @@
             autoWidth: false,
             ajax: {
                 url: '{{ route('laporan.data', [$tanggalAwal, $tanggalAkhir]) }}',
+                data: function (d) {
+                    d.id_outlet = $('#id_outlet').val();
+                },
                 dataSrc: function(json) {
                     let totalPenjualan = 0;
                     let totalPembelian = 0;
@@ -139,6 +153,10 @@
             dom: 'Brt',
             bSort: false,
             bPaginate: false,
+        });
+
+        $('#id_outlet').on('change', function () {
+            table.ajax.reload();
         });
 
         $('.datepicker').datepicker({

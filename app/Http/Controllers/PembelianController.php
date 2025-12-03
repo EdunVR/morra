@@ -8,25 +8,55 @@ use App\Models\Supplier;
 use App\Models\PembelianDetail;
 use App\Models\Bahan;
 use App\Models\BahanDetail;
+use App\Models\Outlet;
+use App\Models\Setting;
+use PDF;
+use App\Services\JournalEntryService;
+use App\Models\ChartOfAccount;
 
 class PembelianController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $supplier = Supplier::orderBy('nama')->get();
-        return view('pembelian.index', compact('supplier'));
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $id_outlet = $request->get('id_outlet');
+        $supplier = Supplier::when(!empty($userOutlets), function ($query) use ($userOutlets, $id_outlet) {
+            $query->whereIn('id_outlet', $userOutlets);
+            if ($id_outlet) {
+                $query->where('id_outlet', $id_outlet);
+            }
+            return $query;
+        })->latest()->get();
+
+        $outlets = Outlet::when($userOutlets, function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+
+        return view('pembelian.index', compact('outlets', 'userOutlets', 'supplier'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
-        $pembelian = Pembelian::orderBy('id_pembelian', 'desc')->get();
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $selectedOutlet = $request->id_outlet;
+
+        $pembelian = Pembelian::when($userOutlets, function ($query) use ($userOutlets, $selectedOutlet) {
+            $query->whereIn('id_outlet', $userOutlets);
+            if ($selectedOutlet) {
+                $query->where('id_outlet', $selectedOutlet);
+            }
+            return $query;
+        })->latest()->get();
 
         return datatables()
             ->of($pembelian)
             ->addIndexColumn()
+            ->addColumn('nama_outlet', function ($kategori) {
+                return $kategori->outlet ? $kategori->outlet->nama_outlet : '-';
+            })
             ->addColumn('total_item', function ($pembelian) {
                 return $pembelian->total_item;
             })
@@ -62,7 +92,7 @@ class PembelianController extends Controller
             ->make(true);
     }
 
-    public function create($id)
+    public function create($id, $id_outlet_selected)
     {
         $pembelian = new Pembelian();
         $pembelian->id_supplier = $id;
@@ -70,10 +100,12 @@ class PembelianController extends Controller
         $pembelian->total_harga = 0;
         $pembelian->diskon = 0;
         $pembelian->bayar = 0;
+        $pembelian->id_outlet = $id_outlet_selected ?? auth()->user()->akses_outlet[0];
         $pembelian->save();
 
         session(['id_pembelian' => $pembelian->id_pembelian]);
         session(['id_supplier' => $pembelian->id_supplier]);
+        session(['id_outlet' => $id_outlet_selected]);
 
         return redirect()->route('pembelian_detail.index');
     }
@@ -89,11 +121,14 @@ class PembelianController extends Controller
             $bayar = $request->bayar; // Jika tidak dicentang, gunakan nilai bayar dari input
         }
 
+        $selectedOutlet = session('id_outlet');
+
         $pembelian = Pembelian::findOrFail($request->id_pembelian);
         $pembelian->total_item = $request->total_item;
         $pembelian->total_harga = $request->total;
         $pembelian->diskon = $request->diskon;
         $pembelian->bayar = $bayar;
+        $pembelian->id_outlet = $selectedOutlet ?? auth()->user()->akses_outlet[0];
         $pembelian->update();
 
         $detail = PembelianDetail::where('id_pembelian', $pembelian->id_pembelian)->get();
@@ -108,7 +143,50 @@ class PembelianController extends Controller
                 }
         }
 
-        return redirect()->route('pembelian.index');
+        // Create automatic journal entry
+        $journalService = new JournalEntryService();
+        
+        // Get accounts from configuration
+        $cashAccount = ChartOfAccount::where('code', '1101')->first(); // Cash account
+        $payableAccount = ChartOfAccount::where('code', '2101')->first(); // Payable account
+        $inventoryAccount = ChartOfAccount::where('code', '1201')->first(); // Inventory account
+        $expenseAccount = ChartOfAccount::where('code', '5201')->first(); // Expense account
+
+        $entries = [];
+
+        foreach ($detail as $item) {
+            $entries[] = [
+                'account_id' => $expenseAccount->id,
+                'debit' => $item->harga_beli * $item->jumlah,
+                'memo' => 'Pembelian bahan '.$item->bahan->nama_bahan
+            ];
+        }
+
+        // Payment method
+        if ($pembelian->bayar > 0) {
+            $entries[] = [
+                'account_id' => $cashAccount->id,
+                'credit' => $pembelian->bayar,
+                'memo' => 'Pembayaran untuk pembelian #'.$pembelian->id_pembelian
+            ];
+        } else {
+            $entries[] = [
+                'account_id' => $payableAccount->id,
+                'credit' => $pembelian->total_harga,
+                'memo' => 'Hutang untuk pembelian #'.$pembelian->id_pembelian
+            ];
+        }
+
+        // $journalService->createAutomaticJournal(
+        //     'pembelian',
+        //     $pembelian->id_pembelian,
+        //     $pembelian->created_at,
+        //     'Pembelian #'.$pembelian->id_pembelian,
+        //     $entries
+        // );
+
+        //return redirect()->route('pembelian.index');
+        return redirect()->route('pembelian.selesai');
     }
 
     /**
@@ -161,10 +239,10 @@ class PembelianController extends Controller
         $pembelian = Pembelian::find($id);
         $detail    = PembelianDetail::where('id_pembelian', $pembelian->id_pembelian)->get();
         foreach ($detail as $item) {
-            $bahan = Bahan::find($item->id_bahan);
-            if ($bahan) {
-                $bahan->stok -= $item->jumlah;
-                $bahan->update();
+            $hargaBahan = BahanDetail::find($item->id_harga_bahan);
+            if ($hargaBahan) {
+                $hargaBahan->stok -= $item->jumlah;
+                $hargaBahan->update();
             }
             $item->delete();
         }
@@ -172,5 +250,35 @@ class PembelianController extends Controller
         $pembelian->delete();
 
         return response(null, 204);
+    }
+
+    public function selesai()
+    {
+        $setting = Setting::first();
+        return view('pembelian.selesai', compact('setting'));
+    }
+
+    public function notaPembelian()
+    {
+        $setting = Setting::first();
+        $pembelian = Pembelian::find(session('id_pembelian'));
+        if (!$pembelian) {
+            abort(404);
+        }
+        $detail = PembelianDetail::with('bahan')
+            ->where('id_pembelian', session('id_pembelian'))
+            ->get();
+
+        $pdf = PDF::loadView('pembelian.nota_pembelian', compact('setting', 'pembelian', 'detail'));
+        $pdf->setPaper(0, 0, 609, 440, 'potrait');
+        return $pdf->stream('Pembelian-' . date('Y-m-d-his') . '.pdf');
+    }
+
+    public function showDetailLedger($id)
+    {
+        $pembelian = Pembelian::with(['supplier', 'outlet', 'details.bahan'])
+            ->findOrFail($id);
+        
+        return view('pembelian.detail_ledger', compact('pembelian'));
     }
 }

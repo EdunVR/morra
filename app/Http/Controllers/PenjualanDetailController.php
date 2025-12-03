@@ -11,15 +11,56 @@ use App\Models\Piutang;
 use Illuminate\Http\Request;
 use App\Models\ProdukTipe;
 use App\Models\HppProduk;
+use App\Models\Outlet;
+use Illuminate\Support\Facades\Log;
 
 class PenjualanDetailController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $produk = Produk::withSum('hppProduk', 'stok')
-            ->orderBy('nama_produk')
-            ->get();
-        $member = Member::orderBy('nama')->get();
+
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $outlets = Outlet::when($userOutlets, function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+
+        $id_outlet = $request->get('id_outlet');
+        $member = Member::when(!empty($userOutlets), function ($query) use ($userOutlets, $id_outlet) {
+            $query->whereIn('id_outlet', $userOutlets);
+            if ($id_outlet) {
+                $query->where('id_outlet', $id_outlet);
+            }
+            return $query;
+        })
+        ->with('tipeX')
+        ->latest()->get();
+
+        $produk = Produk::when(!empty($userOutlets), function ($query) use ($userOutlets, $id_outlet) {
+            $query->whereIn('id_outlet', $userOutlets);
+            if ($id_outlet) {
+                $query->where('id_outlet', $id_outlet);
+            }
+            return $query;
+        })
+        ->withSum('hppProduk', 'stok')
+        ->latest()->get();
+
+        $idProdukList = $produk->pluck('id_produk')->toArray();
+
+        $produkTipeList = ProdukTipe::whereIn('id_produk', $idProdukList)
+        ->where('id_tipe', $request->id_tipe)
+        ->get()
+        ->keyBy('id_produk');
+
+        $produk->each(function ($item) use ($produkTipeList) {
+            $produkTipe = $produkTipeList[$item->id_produk] ?? null;
+        
+            $item->hargaJual_FIX = $produkTipe->harga_jual ?? $item->harga_jual ?? 5;
+            $item->diskon_FIX = $produkTipe->diskon ?? $item->diskon ?? 5;
+        
+            //Log::info('HargaJual_FIX:', ['hargaJual_FIX' => $item->hargaJual_FIX]);
+        });
+
         $diskon = Setting::first()->diskon ?? 0;
 
         // Cek apakah ada transaksi yang sedang berjalan
@@ -27,7 +68,7 @@ class PenjualanDetailController extends Controller
             $penjualan = Penjualan::find($id_penjualan);
             $memberSelected = $penjualan->member ?? new Member();
 
-            return view('penjualan_detail.index', compact('produk', 'member', 'diskon', 'id_penjualan', 'penjualan', 'memberSelected'));
+            return view('penjualan_detail.index', compact('produk', 'member', 'diskon', 'id_penjualan', 'penjualan', 'memberSelected', 'outlets', 'userOutlets'));
         } else {
             return redirect()->route('transaksi.baru');
         }
@@ -48,7 +89,13 @@ class PenjualanDetailController extends Controller
             $row['kode_produk'] = '<span class="label label-success">'. $item->produk['kode_produk'] .'</span';
             $row['nama_produk'] = $item->produk['nama_produk'];
             $row['harga_jual']  = format_uang($item->harga_jual);
-            $row['jumlah']      = '<input type="number" class="form-control input-sm quantity" data-id="'. $item->id_penjualan_detail .'" value="'. $item->jumlah .'">';
+            $row['jumlah']      = '
+            <div class="input-group">
+                <input type="number" class="form-control input-sm quantity" data-id="'. $item->id_penjualan_detail .'" value="'. $item->jumlah .'" readonly>
+                <span class="input-group-btn">
+                    <button onclick="editJumlah('. $item->id_penjualan_detail .')" class="btn btn-xs btn-warning btn-flat"><i class="fa fa-pencil"></i></button>
+                </span>
+            </div>';
             $row['diskon']      = '<span class="diskon">'. $item->diskon .'%</span>';
             $row['subtotal']    = format_uang($item->subtotal);
             $row['aksi']        = '<div class="btn-group">
@@ -97,16 +144,21 @@ class PenjualanDetailController extends Controller
             ->where('id_tipe', $tipeCustomer)
             ->first();
 
-        $diskonTipe = $produkTipe ? $produkTipe->diskon : 0;
+        $hargaJual_FIX = $produkTipe->harga_jual ?? $produk->harga_jual;
+        $diskon_FIX = $produkTipe->diskon ?? $produk->diskon;
+
+        // Hitung HPP berdasarkan FIFO
+        $totalHpp = $this->getHppFifo($produk->id_produk, $request->jumlah);
 
         $detail = new PenjualanDetail();
         $detail->id_penjualan = $request->id_penjualan;
         $detail->id_produk = $produk->id_produk;
-        $detail->harga_jual = $produk->harga_jual;
-        $detail->jumlah = 1;
-        $detail->diskon = $diskonTipe;
-        $detail->subtotal = $produk->harga_jual - ($diskonTipe / 100 * $produk->harga_jual);
+        $detail->harga_jual = $hargaJual_FIX;
+        $detail->jumlah = $request->jumlah;
+        $detail->diskon = $diskon_FIX;
+        $detail->subtotal = $hargaJual_FIX * $request->jumlah - ($diskon_FIX / 100 * $hargaJual_FIX * $request->jumlah);
         $detail->id_hpp = $request->id_hpp;
+        $detail->hpp = $totalHpp;
         $detail->save();
 
         return response()->json('Data berhasil disimpan', 200);
@@ -127,12 +179,20 @@ class PenjualanDetailController extends Controller
     public function destroy($id)
     {
         $detail = PenjualanDetail::find($id);
+
+        if (!$detail) {
+            return response()->json(['message' => 'Detail penjualan tidak ditemukan'], 404);
+        }
+
+        // Panggil fungsi kembalikanStok sebelum menghapus
+        $this->kembalikanStok(new Request(['id_penjualan_detail' => $id]));
+
         $detail->delete();
 
         return response(null, 204);
     }
 
-    public function loadForm($diskon = 0, $total = 0, $diterima = 0, $piutang = 0, $isChecked = "false")
+    public function loadForm($diskon = 0, $total = 0, $diterima = 0, $piutang = 0, $isChecked = "false", $isCheckedIngatkan = "false")
     {
         $bayar   = $total - ($diskon / 100 * $total);
         if ($isChecked== "true" && $piutang > 0) {
@@ -150,6 +210,7 @@ class PenjualanDetailController extends Controller
         ];
 
         session(['isChecked' => $isChecked]);
+        session(['isCheckedIngatkan' => $isCheckedIngatkan]);
         return response()->json($data);
     }
 
@@ -180,6 +241,9 @@ class PenjualanDetailController extends Controller
         $isChecked = $request->isChecked;
         $piutang = $request->piutang;
 
+        $id_penjualan = session('id_penjualan');
+
+        session(['isCheckedIngatkan' => $request->isCheckedIngatkan]);
         session(['piutang' => $piutang]);
 
         if ($diterima == 0) {
@@ -189,7 +253,9 @@ class PenjualanDetailController extends Controller
             $member->save();
 
             Piutang::create([
+                'id_penjualan' => $id_penjualan,
                 'id_member' => $member->id_member,
+                'id_outlet' => $member->id_outlet ?? auth()->user()->akses_outlet[0],
                 'nama' => $member->nama, // Ambil nama dari supplier
                 'piutang' => $bayar, // Jumlah hutang yang baru
                 'status' => 'belum_lunas', // Status hutang
@@ -203,7 +269,9 @@ class PenjualanDetailController extends Controller
             $member->save();
 
             Piutang::create([
+                'id_penjualan' => $id_penjualan,
                 'id_member' => $member->id_member,
+                'id_outlet' => $member->id_outlet ?? auth()->user()->akses_outlet[0],
                 'nama' => $member->nama, // Ambil nama dari supplier
                 'piutang' => $kembali, // Jumlah hutang yang baru
                 'status' => 'belum_lunas', // Status hutang
@@ -216,7 +284,9 @@ class PenjualanDetailController extends Controller
                 $member->save();
 
                 Piutang::create([
+                    'id_penjualan' => $id_penjualan,
                     'id_member' => $member->id_member,
+                    'id_outlet' => $member->id_outlet ?? auth()->user()->akses_outlet[0],
                     'nama' => $member->nama, // Ambil nama dari supplier
                     'piutang' => '-' .$piutang, // Jumlah hutang yang baru
                     'status' => 'lunas', // Status hutang
@@ -273,4 +343,187 @@ class PenjualanDetailController extends Controller
             ->rawColumns(['aksi'])
             ->make(true);
     }
+
+    public function getHppFifo($id_produk, $jumlah)
+    {
+        Log::info('Memulai metode getHppFifo', ['id_produk' => $id_produk, 'jumlah' => $jumlah]);
+
+        // Ambil semua HPP produk yang masih memiliki stok lebih dari 0
+        $hppDetails = HppProduk::where('id_produk', $id_produk)
+            ->where('stok', '>', 0)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        Log::info('Data HPP yang ditemukan:', ['hppDetails' => $hppDetails]);
+
+        $totalHpp = 0;
+        $remainingQty = $jumlah;
+        $usedStocks = [];
+
+        Log::info('Inisialisasi variabel', ['totalHpp' => $totalHpp, 'remainingQty' => $remainingQty]);
+
+        foreach ($hppDetails as $hpp) {
+            Log::info('Memproses HPP:', ['id_hpp' => $hpp->id_hpp, 'stok' => $hpp->stok, 'hpp' => $hpp->hpp]);
+
+            if ($remainingQty <= 0) {
+                Log::info('Sisa jumlah (remainingQty) sudah 0, menghentikan loop');
+                break;
+            }
+
+            // Hitung jumlah stok yang akan digunakan dari HPP ini
+            $usedQty = min($hpp->stok, $remainingQty);
+            Log::info('Menghitung usedQty:', ['usedQty' => $usedQty]);
+
+            $totalHpp += $hpp->hpp * $usedQty;
+            Log::info('Menambahkan ke totalHpp:', ['totalHpp' => $totalHpp]);
+
+            $remainingQty -= $usedQty;
+            Log::info('Mengurangi remainingQty:', ['remainingQty' => $remainingQty]);
+
+            // Catat stok yang digunakan
+            $usedStocks[] = [
+                'id_produk' => $hpp->id_produk,
+                'id_hpp' => $hpp->id_hpp,
+                'stok_terpakai' => $usedQty,
+            ];
+            Log::info('Stok yang digunakan dicatat:', ['usedStocks' => $usedStocks]);
+
+            // Kurangi stok di database
+            $hpp->stok -= $usedQty;
+            $hpp->save();
+            Log::info('Stok di database dikurangi:', ['id_hpp' => $hpp->id_hpp, 'stok_baru' => $hpp->stok]);
+        }
+
+        // Simpan stok yang digunakan ke dalam session
+        $existingUsedStocks = session('used_stocks', []);
+        $updatedUsedStocks = array_merge($existingUsedStocks, $usedStocks);
+        session(['used_stocks' => $updatedUsedStocks]);
+        session()->save(); // Simpan session secara eksplisit
+
+        Log::info('Setelah menyimpan ke session:', ['updatedUsedStocks' => $updatedUsedStocks]);
+
+        // Jika remainingQty masih lebih dari 0, berarti stok tidak mencukupi
+        if ($remainingQty > 0) {
+            Log::error('Stok tidak mencukupi', ['remainingQty' => $remainingQty]);
+            throw new \Exception("Stok tidak mencukupi untuk produk dengan ID: $id_produk");
+        }
+
+        Log::info('Metode getHppFifo selesai', ['totalHpp' => $totalHpp]);
+        return $totalHpp;
+    }
+
+
+    public function kembalikanStok(Request $request)
+    {
+        $detail = PenjualanDetail::find($request->id_penjualan_detail);
+        if (!$detail) {
+            return response()->json('Detail penjualan tidak ditemukan', 404);
+        }
+
+        // Ambil data stok yang digunakan dari session
+        $usedStocks = session('used_stocks', []);
+        $usedStocksForProduct = array_filter($usedStocks, function ($item) use ($detail) {
+            return $item['id_produk'] == $detail->id_produk;
+        });
+
+        Log::info('Data stok yang digunakan dari session:', ['usedStocksForProduct' => $usedStocksForProduct]);
+
+        // Jika session kosong, ambil data stok yang digunakan dari database
+        if (empty($usedStocksForProduct)) {
+            Log::info('Session used_stocks kosong, mengambil data dari database...');
+
+            // Ambil semua HPP yang digunakan untuk produk ini, diurutkan berdasarkan created_at (FIFO)
+            $hppDetails = HppProduk::where('id_produk', $detail->id_produk)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            $remainingQty = $detail->jumlah; // Jumlah stok yang perlu dikembalikan
+
+            foreach ($hppDetails as $hpp) {
+                if ($remainingQty <= 0) {
+                    break;
+                }
+
+                // Hitung berapa stok yang bisa dikembalikan ke id_hpp ini
+                $returnedQty = min($hpp->stok + $remainingQty, $detail->jumlah);
+
+                if ($returnedQty > 0) {
+                    // Tambahkan stok yang dikembalikan
+                    $hpp->stok += $returnedQty;
+                    $hpp->save();
+
+                    // Kurangi sisa stok yang perlu dikembalikan
+                    $remainingQty -= $returnedQty;
+
+                    Log::info('Stok dikembalikan:', [
+                        'id_hpp' => $hpp->id_hpp,
+                        'stok_dikembalikan' => $returnedQty,
+                        'stok_baru' => $hpp->stok,
+                    ]);
+                }
+            }
+        } else {
+            // Jika session tidak kosong, kembalikan stok sesuai dengan data session
+            foreach ($usedStocksForProduct as $usedStock) {
+                $hpp = HppProduk::find($usedStock['id_hpp']);
+                if ($hpp) {
+                    // Tambahkan stok yang dikembalikan
+                    $hpp->stok += $usedStock['stok_terpakai'];
+                    $hpp->save();
+
+                    Log::info('Stok dikembalikan:', [
+                        'id_hpp' => $hpp->id_hpp,
+                        'stok_dikembalikan' => $usedStock['stok_terpakai'],
+                        'stok_baru' => $hpp->stok,
+                    ]);
+                }
+            }
+        }
+
+        // Hapus data stok yang digunakan dari session untuk produk ini
+        $usedStocks = array_filter($usedStocks, function ($item) use ($detail) {
+            return $item['id_produk'] != $detail->id_produk;
+        });
+        session(['used_stocks' => $usedStocks]);
+        session()->save(); // Simpan session secara eksplisit
+
+        Log::info('Stok berhasil dikembalikan untuk produk:', ['id_produk' => $detail->id_produk]);
+
+        return response()->json('Stok berhasil dikembalikan', 200);
+    }
+
+    public function updateJumlah(Request $request)
+    {
+        $request->validate([
+            'id_penjualan_detail' => 'required|exists:penjualan_detail,id_penjualan_detail',
+            'jumlah' => 'required|numeric|min:1'
+        ]);
+
+        $detail = PenjualanDetail::find($request->id_penjualan_detail);
+        if (!$detail) {
+            return response()->json(['success' => false, 'message' => 'Detail penjualan tidak ditemukan'], 404);
+        }
+
+        $selisihJumlah = $request->jumlah;
+        $totalHpp = 0;
+        if ($selisihJumlah > 0) {
+            $totalHpp = $this->getHppFifo($detail->id_produk, $selisihJumlah);
+        } else {
+            // Jika selisih jumlah negatif, kembalikan stok
+            $this->kembalikanStok(new Request([
+                'id_penjualan_detail' => $detail->id_penjualan_detail,
+                'jumlah' => abs($selisihJumlah)
+            ]));
+            $totalHpp = $detail->hpp; // Gunakan HPP yang sudah ada
+        }
+
+        // Update jumlah dan subtotal
+        $detail->jumlah = $request->jumlah;
+        $detail->subtotal = $detail->harga_jual * $request->jumlah - (($detail->diskon * $request->jumlah) / 100 * $detail->harga_jual);
+        $detail->hpp = $totalHpp;
+        $detail->save();
+
+        return response()->json(['success' => true]);
+    }
+    
 }

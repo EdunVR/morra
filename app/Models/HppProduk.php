@@ -10,12 +10,33 @@ class HppProduk extends Model
     use HasFactory;
 
     protected $table = 'hpp_produk';
-    protected $primaryKey = 'id_hpp';
+    protected $primaryKey = 'id'; // Fixed: database uses 'id' not 'id_hpp'
     protected $guarded = [];
 
 
     public function produk()
     {
         return $this->belongsTo(Produk::class, 'id_produk', 'id_produk');
+    }
+
+    public function scopeAvailableStock($query)
+    {
+        return $query->where('stok', '>', 0);
+    }
+
+    /**
+     * Scope untuk mengurutkan berdasarkan FIFO
+     */
+    public function scopeFifo($query)
+    {
+        return $query->orderBy('created_at', 'asc');
+    }
+
+    /**
+     * Scope untuk mengurutkan berdasarkan LIFO
+     */
+    public function scopeLifo($query)
+    {
+        return $query->orderBy('created_at', 'desc');
     }
 }

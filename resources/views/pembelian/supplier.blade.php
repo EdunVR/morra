@@ -26,7 +26,7 @@
                                 <td>{{ $item->alamat }}</td>
                                 <td>{{ format_uang($item->hutang) }}</td>
                                 <td>
-                                    <a href="{{ route('pembelian.create', $item->id_supplier) }}"
+                                    <a href="{{ route('pembelian.create', [$item->id_supplier, $item->id_outlet ?? auth()->user()->akses_outlet[0]]) }}"
                                         class="btn btn-primary btn-xs btn-flat">
                                         <i class="fa fa-check-circle"></i>
                                         Pilih

@@ -11,15 +11,18 @@
                     <thead>
                         <th width="5%">No</th>
                         <th>Nama</th>
+                        <th>Tipe</th>
                         <th>Telepon</th>
                         <th>Alamat</th>
                         <th><i class="fa fa-cog"></i></th>
                     </thead>
                     <tbody>
                         @foreach ($member as $key => $item)
+                        
                             <tr>
                                 <td width="5%">{{ $key+1 }}</td>
                                 <td>{{ $item->nama }}</td>
+                                <td>{{ $item->tipeX->nama_tipe ?? '-' }}</td>
                                 <td>{{ $item->telepon }}</td>
                                 <td>{{ $item->alamat }}</td>
                                 <td>

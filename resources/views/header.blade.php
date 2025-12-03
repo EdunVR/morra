@@ -2,20 +2,18 @@
     <!-- Logo -->
     <a href="index2.html" class="logo">
         @php
-            $words = explode(' ', $setting->nama_perusahaan);
+            $words = explode(' ', "MORRA ERP");
             $word  = '';
             foreach ($words as $w) {
                 $word .= $w[0];
             }
         @endphp
-        <span class="logo-mini">{{ $word }}</span>
-        <span class="logo-lg"><b>{{ $setting->nama_perusahaan }}</b></span>
-        <!-- <span class="logo-mini"><b>TO</b>FU</span>
-        <span class="logo-lg"><b>Tofu </b>Kong Hin</span> -->
+        <span class="logo-mini"><b>M</b>ERP</span>
+        <span class="logo-lg"><b>MORRA</b>ERP</span>
     </a>
     <!-- Header Navbar: style can be found in header.less -->
     <nav class="navbar navbar-static-top">
-        <!-- Sidebar toggle button-->
+        <!-- Sidebar toggle button -->
         <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button">
             <span class="sr-only">Toggle navigation</span>
         </a>
@@ -44,7 +42,7 @@
                         <!-- Menu Footer-->
                         <li class="user-footer">
                             <div class="pull-left">
-                                <a href="{{ route('user.profil') }}" class="btn btn-default btn-flat">Profil</a>
+                                <a href="{{ route('admin.user.profil') }}" class="btn btn-default btn-flat">Profil</a>
                             </div>
                             <div class="pull-right">
                                 <a href="#" class="btn btn-default btn-flat" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Keluar</a>

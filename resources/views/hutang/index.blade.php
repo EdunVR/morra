@@ -13,11 +13,25 @@ Hutang
 <div class="row">
     <div class="col-md-12">
         <div class="box">
+            <div class="box-header with-border">
+                @if($outlets->count() > 1)
+                <div class="form-group">
+                    <label for="id_outlet">Pilih Outlet</label>
+                    <select name="id_outlet" id="id_outlet" class="form-control">
+                        <option value="">Semua Outlet</option>
+                        @foreach ($outlets as $outlet)
+                            <option value="{{ $outlet->id_outlet }}">{{ $outlet->nama_outlet }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+            </div>
             <div class="box-body table-responsive">
                 <table class="table table-striped table-bordered table-hutang">
                     <thead>
                         <th width="5%">No</th>
                         <th>Tanggal</th>
+                        <th>Outlet</th>
                         <th>Nama Supplier</th>
                         <th>Jumlah Hutang</th>
                         <th>Status</th>
@@ -43,6 +57,9 @@ Hutang
             autoWidth: false,
             ajax: {
                 url: '{{ route('hutang.data') }}',
+                data: function (d) {
+                    d.id_outlet = $('#id_outlet').val();
+                }
             },
             columns: [{
                     data: 'DT_RowIndex',
@@ -52,6 +69,7 @@ Hutang
                 {
                     data: 'tanggal'
                 },
+                { data: 'nama_outlet' },
                 {
                     data: 'nama'
                 },
@@ -67,6 +85,10 @@ Hutang
                     sortable: false
                 },
             ]
+        });
+
+        $('#id_outlet').on('change', function () {
+            table.ajax.reload();
         });
     });
 

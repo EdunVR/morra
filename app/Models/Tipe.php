@@ -17,4 +17,9 @@ class Tipe extends Model
     {
         return $this->hasMany(ProdukTipe::class, 'id_tipe');
     }
+
+    public function members()
+    {
+        return $this->hasMany(Member::class, 'id_tipe', 'id_tipe');
+    }
 }

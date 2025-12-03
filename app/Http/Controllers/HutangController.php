@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Hutang;
 use App\Models\Supplier;
+use App\Models\Outlet;
 use Illuminate\Http\Request;
 
 class HutangController extends Controller
@@ -13,19 +14,39 @@ class HutangController extends Controller
      */
     public function index()
     {
-        $suppliers = Supplier::orderBy('nama')->get();
-        return view('hutang.index', compact('suppliers'));
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $suppliers = Supplier::when(!empty($userOutlets), function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+        $outlets = Outlet::when($userOutlets, function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+
+        return view('hutang.index', compact('outlets', 'userOutlets', 'suppliers'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
-        $hutang = Hutang::orderBy('id_hutang', 'desc')->get();
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $selectedOutlet = $request->id_outlet;
+
+        $hutang = Hutang::when($userOutlets, function ($query) use ($userOutlets, $selectedOutlet) {
+            $query->whereIn('id_outlet', $userOutlets);
+            if ($selectedOutlet) {
+                $query->where('id_outlet', $selectedOutlet);
+            }
+
+            return $query;
+        })->latest()->get();
 
         return datatables()
             ->of($hutang)
             ->addIndexColumn()
             ->addColumn('tanggal', function ($hutang) {
                 return tanggal_indonesia($hutang->created_at, false);
+            })
+            ->addColumn('nama_outlet', function ($hutang) {
+                return $hutang->outlet ? $hutang->outlet->nama_outlet : '-';
             })
             ->addColumn('supplier', function ($hutang) {
                 return $hutang->nama; // Pastikan relasi supplier ada di model Hutang

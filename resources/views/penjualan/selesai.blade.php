@@ -34,9 +34,15 @@
 
 @push('scripts')
 <script>
-    // tambahkan untuk delete cookie innerHeight terlebih dahulu
-    document.cookie = "innerHeight=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    
+    // Auto print setelah transaksi selesai
+    $(document).ready(function() {
+        @if(session('auto_print') && $setting->tipe_nota == 1)
+            notaKecil('{{ route('transaksi.nota_kecil') }}', 'Nota Kecil');
+        @elseif(session('auto_print') && $setting->tipe_nota == 2)
+            notaBesar('{{ route('transaksi.nota_besar', ['isChecked' => session('isChecked') ?? 'false']) }}', 'Nota PDF');
+        @endif
+    });
+
     function notaKecil(url, title) {
         popupCenter(url, title, 625, 500);
     }
@@ -66,6 +72,7 @@
         );
 
         if (window.focus) newWindow.focus();
+        return newWindow;
     }
 </script>
 @endpush

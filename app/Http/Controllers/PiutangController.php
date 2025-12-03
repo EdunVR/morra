@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Piutang;
 use App\Models\Member;
+use App\Models\Outlet;
 use Illuminate\Http\Request;
 
 class PiutangController extends Controller
@@ -13,19 +14,38 @@ class PiutangController extends Controller
      */
     public function index()
     {
-        $members = Member::orderBy('nama')->get();
-        return view('piutang.index', compact('members'));
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $members = Member::when(!empty($userOutlets), function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+        $outlets = Outlet::when($userOutlets, function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+
+        return view('piutang.index', compact('outlets', 'userOutlets', 'members'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
-        $piutang = Piutang::orderBy('id_piutang', 'desc')->get();
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $selectedOutlet = $request->id_outlet;
+
+        $piutang = Piutang::when($userOutlets, function ($query) use ($userOutlets, $selectedOutlet) {
+            $query->whereIn('id_outlet', $userOutlets);
+            if ($selectedOutlet) {
+                $query->where('id_outlet', $selectedOutlet);
+            }
+            return $query;
+        })->latest()->get();
 
         return datatables()
             ->of($piutang)
             ->addIndexColumn()
             ->addColumn('tanggal', function ($piutang) {
                 return tanggal_indonesia($piutang->created_at, false);
+            })
+            ->addColumn('nama_outlet', function ($piutang) {
+                return $piutang->outlet ? $piutang->outlet->nama_outlet : '-';
             })
             ->addColumn('member', function ($piutang) {
                 return $piutang->nama; 

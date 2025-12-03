@@ -23,6 +23,20 @@
                             <span class="help-block with-errors"></span>
                         </div>
                     </div>
+                    @if($outlets->count() > 1)
+                    <div class="form-group row">
+                        <label for="id_outlet" class="col-md-2 col-md-offset-1 control-label">Outlet</label>
+                        <div class="col-md-9">
+                            <select name="id_outlet" id="id_outlet" class="form-control" required>
+                                <option value="">Pilih Outlet</option>
+                                @foreach ($outlets as $outlet)
+                                    <option value="{{ $outlet->id_outlet }}">{{ $outlet->nama_outlet }}</option>
+                                @endforeach
+                            </select>
+                            <span class="help-block with-errors"></span>
+                        </div>
+                    </div>
+                    @endif
                     <div class="form-group row">
                         <label for="nama" class="col-lg-2 col-lg-offset-1 control-label">Nama</label>
                         <div class="col-lg-6">

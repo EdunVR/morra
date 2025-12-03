@@ -7,52 +7,87 @@ use App\Models\Setting;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Tipe;
+use App\Models\Outlet;
 
 class MemberController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+    
     public function index()
     {
-        $tipe = Tipe::all()->pluck('nama_tipe', 'id_tipe');
-        return view('member.index', compact('tipe'));
+        $userOutlets = auth()->user()->akses_outlet ?? [];
+        $tipe = Tipe::when(!empty($userOutlets), function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->pluck('nama_tipe', 'id_tipe');
+        $outlets = Outlet::when($userOutlets, function ($query) use ($userOutlets) {
+            return $query->whereIn('id_outlet', $userOutlets);
+        })->get();
+
+        return view('member.index', compact('tipe','outlets', 'userOutlets'));
     }
 
-    public function data()
-    {
-        $member = Member::leftJoin('tipe', 'tipe.id_tipe', 'member.id_tipe')
-            ->select('member.*', 'nama_tipe')
-            // ->orderBy('kode_produk', 'asc')
-            ->get();
+    public function data(Request $request)
+{
+    $userOutlets = auth()->user()->akses_outlet ?? [];
+    $selectedOutlet = $request->id_outlet;
 
-        return datatables()
-            ->of($member)
-            ->addIndexColumn()
-            ->addColumn('select_all', function ($produk) {
-                return '
-                    <input type="checkbox" name="id_member[]" value="'. $produk->id_member .'">
+    $member = Member::when($userOutlets, function ($query) use ($userOutlets, $selectedOutlet) {
+            $query->whereIn('member.id_outlet', $userOutlets);
+            if ($selectedOutlet) {
+                $query->where('member.id_outlet', $selectedOutlet);
+            }
+            return $query;
+        })
+        ->leftJoin('tipe', 'tipe.id_tipe', 'member.id_tipe')
+        ->select('member.*', 'tipe.nama_tipe')
+        // Tambahkan subquery untuk total piutang
+        ->selectSub(function ($query) {
+            $query->selectRaw('COALESCE(SUM(piutang), 0)')
+                  ->from('piutang')
+                  ->whereColumn('id_member', 'member.id_member')
+                  ->where('status', 'belum_lunas');
+        }, 'total_piutang')
+        ->latest('member.created_at')->get();
+
+    return datatables()
+        ->of($member)
+        ->addIndexColumn()
+        ->addColumn('nama_outlet', function ($member) {
+            return $member->outlet ? $member->outlet->nama_outlet : '-';
+        })
+        ->addColumn('select_all', function ($member) {
+            return '
+                <input type="checkbox" name="id_member[]" value="'. $member->id_member .'">
+            ';
+        })
+        ->addColumn('kode_member', function ($member) {
+            return '<span class="label label-success">'. $member->kode_member .'<span>';
+        })
+        ->addColumn('piutang', function ($member) {
+            return '<span class="label label-danger">'. format_uang($member->total_piutang) .'</span>';
+        })
+        ->addColumn('saldo', function ($member) {
+            return '<span class="label label-success">'. format_uang($member->saldo) .'</span>';
+        })
+        ->addColumn('aksi', function ($member) {
+            $buttons = '
+            <div class="btn-group">
+                <button type="button" onclick="editForm(`'. route('member.update', $member->id_member) .'`)" class="btn btn-xs btn-info btn-flat"><i class="fa fa-pencil"></i></button>
+                <button type="button" onclick="deleteData(`'. route('member.destroy', $member->id_member) .'`)" class="btn btn-xs btn-danger btn-flat"><i class="fa fa-trash"></i></button>
+            ';
+            
+            if ($member->nama_tipe == 'Jemaah') {
+                $buttons .= '
+                <button type="button" onclick="showJemaahData(`'. route('jemaah.show', $member->id_member) .'`)" class="btn btn-xs btn-primary btn-flat"><i data-feather="user"></i> Data Jemaah</button>
                 ';
-            })
-            ->addColumn('kode_member', function ($member) {
-                return '<span class="label label-success">'. $member->kode_member .'<span>';
-            })
-            ->addColumn('piutang', function ($member) {
-                return '<span class="label label-danger">'. format_uang($member->piutang) .'</span>';
-            })
-            ->addColumn('aksi', function ($member) {
-                return '
-                <div class="btn-group">
-                    <button type="button" onclick="editForm(`'. route('member.update', $member->id_member) .'`)" class="btn btn-xs btn-info btn-flat"><i class="fa fa-pencil"></i></button>
-                    <button type="button" onclick="deleteData(`'. route('member.destroy', $member->id_member) .'`)" class="btn btn-xs btn-danger btn-flat"><i class="fa fa-trash"></i></button>
-                </div>
-                ';
-            })
-            ->rawColumns(['aksi', 'select_all', 'kode_member', 'piutang'])
-            ->make(true);
-    }
+            }
+            
+            $buttons .= '</div>';
+            
+            return $buttons;
+        })
+        ->rawColumns(['aksi', 'select_all', 'kode_member', 'piutang', 'saldo'])
+        ->make(true);
+}
 
     /**
      * Show the form for creating a new resource.
@@ -80,6 +115,8 @@ class MemberController extends Controller
         $member->nama = $request->nama;
         $member->telepon = $request->telepon;
         $member->alamat = $request->alamat;
+        $member->id_outlet = $request->id_outlet ?? auth()->user()->akses_outlet[0]; 
+        $member->id_tipe = $request->id_tipe;
         $member->save();
 
         return response()->json('Data berhasil disimpan', 200);
@@ -118,7 +155,13 @@ class MemberController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $member = Member::find($id)->update($request->all());
+        $member = Member::find($id);
+        $member->nama = $request->nama;
+        $member->telepon = $request->telepon;
+        $member->alamat = $request->alamat;
+        $member->id_outlet = $request->id_outlet ?? auth()->user()->akses_outlet[0]; 
+        $member->id_tipe = $request->id_tipe;
+        $member->update();
 
         return response()->json('Data berhasil disimpan', 200);
     }
@@ -153,5 +196,27 @@ class MemberController extends Controller
         $pdf = PDF::loadView('member.cetak', compact('datamember', 'no', 'setting'));
         $pdf->setPaper(array(0, 0, 566.93, 850.39), 'potrait');
         return $pdf->stream('member.pdf');
+    }
+
+    public function deleteSelected(Request $request)
+    {
+        foreach ($request->id_member as $id) {
+            $member = Member::find($id);
+            $member->delete();
+        }
+
+        return response(null, 204);
+    }
+
+    public function cari(Request $request)
+    {
+        $keyword = $request->get('keyword');
+        
+        $member = Member::where('nama', 'like', "%$keyword%")
+                    ->orWhere('telepon', 'like', "%$keyword%")
+                    ->limit(10)
+                    ->get();
+        
+        return response()->json($member);
     }
 }

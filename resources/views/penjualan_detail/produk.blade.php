@@ -14,6 +14,7 @@
                         <th>Nama</th>
                         <th>Harga Jual</th>
                         <th>Stok</th>
+                        <th>Jumlah</th>
                         <th><i class="fa fa-cog"></i></th>
                     </thead>
                     <tbody>
@@ -22,12 +23,19 @@
                                 <td width="5%">{{ $key+1 }}</td>
                                 <td><span class="label label-success">{{ $item->kode_produk }}</span></td>
                                 <td>{{ $item->nama_produk }}</td>
-                                <td>{{ format_uang($item->harga_jual) }}</td>
+                                <td>{{ format_uang($item->hargaJual_FIX) }}</td>
                                 <td>{{ $item->hpp_produk_sum_stok ?? 0 }}</td>
                                 <td>
+                                    <input type="number" class="form-control input-sm jumlah" 
+                                           data-id="{{ $item->id_produk }}" 
+                                           placeholder="0"
+                                           min="0" 
+                                           max="{{ $item->hpp_produk_sum_stok ?? 1 }}">
+                                </td>
+                                <td>
                                     <a href="#" class="btn btn-primary btn-xs btn-flat"
-                                        onclick="pilihHarga('{{ route('getHPP', $item->id_produk) }}', '{{ $item->id_produk }}')">
-                                        <!-- onclick="pilihProduk('{{ $item->id_produk }}', '{{ $item->kode_produk }}', '{{ $item->stok }}')"> -->
+                                        onclick="pilihProduk('{{ $item->id_produk }}', '{{ $item->kode_produk }}', '{{ $item->hpp_produk_sum_stok }}')">
+                                         <!-- onclick="pilihHarga('{{ route('getHPP', $item->id_produk) }}', '{{ $item->id_produk }}')"> -->
                                         <i class="fa fa-check-circle"></i>
                                         Pilih
                                     </a>

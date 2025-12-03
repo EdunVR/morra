@@ -43,8 +43,12 @@ Transaksi Pembelian
             <div class="box-header with-border">
                 <table>
                     <tr>
+                        <td>Outlet</td>
+                        <td>: {{ $supplier->outlet->nama_outlet }} </td>
+                    </tr>
+                    <tr>
                         <td>Supplier</td>
-                        <td>: <span class="label label-success"> {{ $supplier->nama }} </span></td>
+                        <td>: {{ $supplier->nama }}</td>
                     </tr>
                     <tr>
                         <td>Telepon</td>
@@ -73,11 +77,16 @@ Transaksi Pembelian
                                 <input type="hidden" name="harga_beli" id="harga_beli">
                                 <input type="hidden" name="stok" id="stok">
                                 <input type="hidden" name="id_harga_bahan" id="id_harga_bahan">
-                                <input type="text" class="form-control" name="nama_bahan" id="nama_bahan">
+                                <input type="hidden" name="jumlah" id="jumlah" value="0">
+                                <input type="text" class="form-control" name="nama_bahan" id="nama_bahan" placeholder="Cari Bahan...">
                                 <span class="input-group-btn">
                                     <button onclick="tampilBahan()" class="btn btn-info btn-flat" type="button"><i
                                             class="fa fa-arrow-right"></i></button>
                                 </span>
+                            </div>
+                            <!-- Hasil pencarian Produk -->
+                            <div id="hasil-pencarian-bahan" class="list-group" style="display: none;">
+                                <!-- Hasil pencarian akan muncul di sini -->
                             </div>
                         </div>
                     </div>
@@ -87,7 +96,7 @@ Transaksi Pembelian
                         <th width="5%">No</th>
                         <th>Nama Bahan</th>
                         <th>Harga</th>
-                        <th>Jumlah</th>
+                        <th width="15%">Jumlah</th>
                         <th>Subtotal</th>
                         <th width="15%"><i class="fa fa-cog"></i>Aksi</th>
                     </thead>
@@ -120,14 +129,14 @@ Transaksi Pembelian
                                 <label for="diskon" class="col-lg-2 control-label">Diskon</label>
                                 <div class="col-lg-8">
                                     <input type="number" name="diskon" id="diskon" class="form-control"
-                                        value="{{ $diskon }}">
+                                       min="0" value="{{ $diskon }}" max="100">
 
                                 </div>
                             </div>
                             <div class="form-group row">
                                 <label for="bayarrp" class="col-lg-2 control-label">Bayar</label>
                                 <div class="col-lg-8">
-                                    <input type="text" id="bayarrp" class="form-control">
+                                    <input type="text" id="bayarrp" class="form-control" readonly>
                                 </div>
                             </div>
                             <div class="form-group row">
@@ -161,10 +170,18 @@ Transaksi Pembelian
 
 @includeif('pembelian_detail.detail')
 @includeif('pembelian_detail.bahan')
+@includeif('pembelian_detail.edit_jumlah')
+@includeif('pembelian_detail.form_harga')
     @endsection
 
     @push('scripts')
         <script>
+            let baseUrl = "{{ url('/') }}"; // Base URL Laravel
+
+            function getHargaBeliUrl(idBahan) {
+                return "{{ route('getHargaBeli', ':id') }}".replace(':id', idBahan);
+            }
+
             let table, table2, table3;
             $(function () {
                 table = $('.table-pembelian').DataTable({
@@ -185,7 +202,7 @@ Transaksi Pembelian
                                 data: 'harga_beli'
                             },
                             {
-                                data: 'jumlah'
+                                data: 'jumlah',
                             },
                             {
                                 data: 'subtotal'
@@ -219,6 +236,8 @@ Transaksi Pembelian
                         {data: 'aksi', searchable: false, sortable: false},
                     ]
                 });
+
+                const bahan = @json($bahan); 
 
                 $(document).on('input', '.quantity', function () {
                     let id = $(this).data('id');
@@ -285,6 +304,36 @@ Transaksi Pembelian
                     });
                 });
 
+                $('#nama_bahan').on('input', function() {
+                    const keyword = $(this).val().toLowerCase();
+                    const hasilPencarian = $('#hasil-pencarian-bahan');
+                    hasilPencarian.empty();
+
+                    if (keyword.length >= 2) {
+                        const filteredBahan = bahan.filter(bahan => 
+                            bahan.nama_bahan.toLowerCase().includes(keyword)
+                        );
+
+                        console.log(filteredBahan);
+
+                        if (filteredBahan.length > 0) {
+                            filteredBahan.forEach(bahan => {
+                                hasilPencarian.append(`
+                                    <a href="#" class="list-group-item list-group-item-action"
+                                        onclick="pilihHarga('${getHargaBeliUrl(bahan.id_bahan)}', '${bahan.id_bahan}')">
+                                        ${bahan.nama_bahan} - Stok: ${bahan.stok}
+                                    </a>
+                                `);
+                            });
+                            hasilPencarian.show();
+                        } else {
+                            hasilPencarian.hide();
+                        }
+                    } else {
+                        hasilPencarian.hide();
+                    }
+                });
+
 
             });
 
@@ -316,8 +365,41 @@ Transaksi Pembelian
                 loadForm($('#diskon').val());
             });
 
+            $('#modal-form-harga form').validator().on('submit', function (e) {
+                    if (e.isDefaultPrevented()) {
+                        // handle the invalid form...
+                    } else {
+                        e.preventDefault();
+                        $.post($('#modal-form-harga form').attr('action'), $('#modal-form-harga form').serialize())
+                            .done((response) => {
+                                $('#modal-form-harga').modal('hide');
+                                $table3.ajax.reload(() => loadForm($('#diskon').val()));
+                                $('#modal-detail').html($(response).find('#modal-detail').html());
+                                loadBahan();
+                                // table1.ajax.reload();
+                            })
+                            .fail((errors) => {
+                                alert('Tidak dapat menyimpan data');
+                                return;
+                            });
+                    }
+                })
+
             function tampilBahan() {
                 $('#modal-bahan').modal('show');
+            }
+
+            function loadBahan() {
+                $.ajax({
+                    url: '{{ route('pembelian_detail.index') }}',
+                    type: 'GET',
+                    success: function(response) {
+                        $('#modal-bahan').html($(response).find('#modal-bahan').html());
+                    },
+                    error: function(xhr, status, error) {
+                        console.log("Gagal memuat data produk:", error);
+                    }
+                });
             }
 
             function hideBahan() {
@@ -326,6 +408,8 @@ Transaksi Pembelian
 
             function pilihHarga(url, id) {
                 $('#id_bahan').val(id);
+                const jumlah = $(`input[data-id="${id}"]`).val() || 0;
+                $('#jumlah').val(jumlah);
                 hideBahan();
                 $('#modal-detail').modal('show');
                 table3.ajax.url(url);
@@ -343,17 +427,25 @@ Transaksi Pembelian
             }
 
             function tambahBahan() {
-                $.post('{{ route('pembelian_detail.store') }}', $('.form-bahan').serialize())
-                    .done(response => {
-                        $('#nama_bahan').focus();
-                        table.ajax.reload();
-                        // table.ajax.reload(() => loadForm($('#diskon').val()));
-                    })
-                    .fail(errors => {
-                        console.log(errors);
-                        alert('Tidak dapat menyimpan data');
-                        return;
-                    });
+                const jumlah = $('#jumlah').val();
+                console.log(jumlah);
+                $.post('{{ route('pembelian_detail.store') }}', {
+                    ...$('.form-bahan').serializeArray().reduce((obj, item) => {
+                        obj[item.name] = item.value;
+                        return obj;
+                    }, {}),
+                    jumlah: jumlah
+                })
+                .done(response => {
+                    $('#nama_bahan').focus();
+                    table.ajax.reload(() => loadForm($('#diskon').val()));
+                    $('#modal-jumlah').modal('hide');
+                })
+                .fail(errors => {
+                    console.log(errors);
+                    alert('Tidak dapat menyimpan data');
+                    return;
+                });
             }
 
             function deleteData(url) {
@@ -422,6 +514,130 @@ Transaksi Pembelian
                     console.log(errors);
                     alert('Gagal menambahkan harga!');
                 });
+            }
+
+            // Fungsi untuk menampilkan modal edit jumlah
+            function editJumlah(id_pembelian_detail) {
+                // Ambil data jumlah saat ini
+                const jumlahSaatIni = $(`input[data-id="${id_pembelian_detail}"]`).val();
+
+                // Isi form edit jumlah
+                $('#edit_id_pembelian_detail').val(id_pembelian_detail);
+                $('#edit_jumlah').attr('placeholder', jumlahSaatIni).val('');
+
+                // Tampilkan modal
+                $('#modal-edit-jumlah').modal('show');
+            }
+
+            // Fungsi untuk menyimpan perubahan jumlah
+            function simpanEditJumlah() {
+                const id_pembelian_detail = $('#edit_id_pembelian_detail').val();
+                const jumlah = $('#edit_jumlah').val();
+
+                if (jumlah < 1) {
+                    alert('Jumlah tidak boleh kurang dari 1');
+                    return;
+                }
+
+                $.ajax({
+                    url: '{{ route('pembelian_detail.updateJumlah') }}', // Route untuk update jumlah
+                    type: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        id_pembelian_detail: id_pembelian_detail,
+                        jumlah: jumlah
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Perbarui jumlah di tabel
+                            $(`input[data-id="${id_pembelian_detail}"]`).val(jumlah);
+
+                            // Perbarui subtotal dan total
+                            table.ajax.reload(() => loadForm($('#diskon').val()));
+                            //$('#modal-bahan').html($(response).find('#modal-bahan').html());
+                            // Sembunyikan modal
+                            $('#modal-edit-jumlah').modal('hide');
+                        } else {
+                            alert('Gagal memperbarui jumlah');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.log("Gagal menyimpan perubahan:", error);
+                        alert('Terjadi kesalahan saat menyimpan perubahan');
+                    }
+                });
+            }
+
+            function editForm_harga(url) {
+                $('#modal-form-harga').modal('show');
+                $('#modal-form-harga .modal-title').text('Edit Harga dan Stok');
+                
+                // Reset nilai input dalam modal
+                $('#modal-form-harga input').val('');
+                $('#modal-form-harga [name=_method]').val('put');  // Set method PUT
+                $('#modal-form-harga [name=harga_beli]').focus();  // Fokuskan elemen harga_bahan
+                
+                // Ambil data dari URL dan masukkan ke input modal
+                $.get(url)
+                    .done((response) => {
+                        // Isi input modal dengan data yang diterima dari server
+                        $('#modal-form-harga [name=harga_beli]').val(response.harga_beli);
+                        $('#modal-form-harga [name=stok]').val(response.stok);
+                        
+                        // Handle pengiriman data menggunakan AJAX, tanpa form
+                        $('#modal-form-harga .btn-primary').on('click', function(e) {
+                            e.preventDefault();  // Prevent default form submission
+                            
+                            var dataX = {
+                                _method: 'PUT',  // Menyatakan request adalah PUT
+                                harga_beli: $('#modal-form-harga [name=harga_beli]').val(),
+                                stok: $('#modal-form-harga [name=stok]').val()
+                            };
+                            
+                            $.ajax({
+                                url: "{{ url('pembelian_detail/bahan_harga') }}/" + response.id,
+                                method: 'PUT',
+                                data: dataX,
+                                headers: {
+                                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')  // Menambahkan CSRF token ke header
+                                },
+                                success: function(response) {
+                                    alert('Data berhasil disimpan');
+                                    $('#modal-form-harga').modal('hide');
+                                    table3.ajax.reload(() => loadForm($('#diskon').val()));
+                                    $('#modal-detail').html($(response).find('#modal-detail').html());
+                                    loadBahan();
+                                },
+                                error: function(errors) {
+                                    console.log(errors);
+                                    alert('Tidak dapat menyimpan data');
+                                }
+                            });
+                        });
+                    })
+                    .fail((errors) => {
+                        console.log(errors);
+                        alert('Tidak dapat menampilkan data');
+                    });
+            }
+
+            function deleteData_harga(url) {
+                if (confirm('Yakin ingin menghapus data?')) {
+                    $.post(url, {
+                            '_token': $('[name=csrf-token]').attr('content'),
+                            '_method': 'delete'
+                        })
+                        .done((response) => {
+                            console.log(response);
+                            table3.ajax.reload(() => loadForm($('#diskon').val()));
+                            $('#modal-detail').html($(response).find('#modal-detail').html());
+                            loadBahan();
+                        })
+                        .fail((errors) => {
+                            alert('Tidak dapat menghapus data');
+                            return;
+                        })
+                }
             }
         </script>
     @endpush

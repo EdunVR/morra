@@ -4,21 +4,32 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Outlet;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use App\Models\Member;
 
 class UserController extends Controller
 {
     public function index()
     {
-        return view('user.index');
+        $outlets = Outlet::all();
+        $agents = Member::where('id_tipe', 15)->get();
+        return view('user.index', compact('outlets', 'agents'));
     }
 
     public function data()
     {
-        $user = User::isNotAdmin()->orderBy('id', 'desc')->get();
+        $users = User::isNotAdmin()->orderBy('id', 'desc')->get();
+
+        $users->transform(function ($user) {
+            $outletNames = Outlet::whereIn('id_outlet', $user->akses_outlet ?? [])->pluck('nama_outlet')->toArray();
+            $user->akses_outlet = $outletNames; // Ganti ID dengan nama outlet
+            return $user;
+        });
 
         return datatables()
-            ->of($user)
+            ->of($users)
             ->addIndexColumn()
             ->addColumn('aksi', function ($user) {
                 return '
@@ -32,23 +43,25 @@ class UserController extends Controller
             ->make(true);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function create()
     {
-        $aksesOptions = ['Dashboard', 'Kategori', 'Tipe', 'Satuan', 'Produk', 'Bahan', 'Customer', 'Supplier', 'Produksi', 'Pengeluaran', 'Pembelian', 'Penjualan', 'Hutang', 'Piutang', 'Transaksi', 'Transaksi Aktif', 'Laporan', 'Laporan Penjualan', 'User', 'Pengaturan'];
-        return view('user.form', compact('aksesOptions'));
+        $aksesKhususOptions = ['Tampilkan Profit', 'Tampilkan Omset'];
+        $outlets = Outlet::all();
+        $agents = Member::where('id_tipe', 15)->get(); // Get semua agen
+        
+        return view('user.form', compact('aksesOptions', 'outlets', 'aksesKhususOptions', 'agents'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
+    public function edit($id)
+    {
+        $user = User::find($id);
+        $aksesKhususOptions = ['Tampilkan Profit', 'Tampilkan Omset'];
+        $outlets = Outlet::all();
+        $agents = Member::where('id_tipe', 15)->get(); // Get semua agen
+        
+        return view('user.form', compact('user', 'aksesOptions', 'outlets', 'aksesKhususOptions', 'agents'));
+    }
+
     public function store(Request $request)
     {
         $user = new User();
@@ -58,7 +71,30 @@ class UserController extends Controller
         $user->level = 2;
         $user->foto = '/img/user.png';
         $user->akses = $request->akses;
+        $user->akses_outlet = $request->akses_outlet;
+        $user->akses_khusus = $request->akses_khusus;
+        $user->id_agen = $request->id_agen;
+        $user->is_agen = $request->has('is_agen') ? 1 : 0;
+
         $user->save();
+
+        return response()->json('Data berhasil disimpan', 200);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = User::find($id);
+        $user->name = $request->name;
+        $user->email = $request->email;
+        if ($request->has('password') && $request->password != "") 
+            $user->password = bcrypt($request->password);
+        $user->akses = $request->akses;
+        $user->akses_outlet = $request->akses_outlet;
+        $user->akses_khusus = $request->akses_khusus;
+        $user->id_agen = $request->id_agen;
+        $user->is_agen = $request->has('is_agen') ? 1 : 0;
+
+        $user->update();
 
         return response()->json('Data berhasil disimpan', 200);
     }
@@ -76,38 +112,6 @@ class UserController extends Controller
         return response()->json($user);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        $user = User::find($id);
-        $aksesOptions = ['Dashboard', 'Kategori', 'Tipe', 'Satuan', 'Produk', 'Bahan', 'Customer', 'Supplier', 'Produksi', 'Pengeluaran', 'Pembelian', 'Penjualan', 'Hutang', 'Piutang', 'Transaksi', 'Transaksi Aktif', 'Laporan', 'Laporan Penjualan', 'User', 'Pengaturan'];
-        return view('user.form', compact('user', 'aksesOptions'));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        $user = User::find($id);
-        $user->name = $request->name;
-        $user->email = $request->email;
-        if ($request->has('password') && $request->password != "") 
-            $user->password = bcrypt($request->password);
-        $user->akses = $request->akses;
-        $user->update();
-
-        return response()->json('Data berhasil disimpan', 200);
-    }
 
     /**
      * Remove the specified resource from storage.
@@ -157,4 +161,6 @@ class UserController extends Controller
 
         return response()->json($user, 200);
     }
+
+    
 }
