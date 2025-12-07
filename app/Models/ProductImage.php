@@ -11,10 +11,18 @@ class ProductImage extends Model
 
     protected $table = 'product_images';
     protected $primaryKey = 'id_image';
-    protected $guarded = [];
+    protected $fillable = [
+        'id_produk',
+        'path',
+        'is_primary',
+    ];
+
+    protected $casts = [
+        'is_primary' => 'boolean',
+    ];
 
     public function product()
     {
-        return $this->belongsTo(Produk::class, 'id_produk');
+        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk');
     }
 }

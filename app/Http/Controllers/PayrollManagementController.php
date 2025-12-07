@@ -6,6 +6,8 @@ use App\Models\Payroll;
 use App\Models\Recruitment;
 use App\Models\PayrollCoaSetting;
 use App\Models\ChartOfAccount;
+use App\Models\Attendance;
+use App\Models\WorkSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -489,5 +491,131 @@ class PayrollManagementController extends Controller
         ];
 
         return $labels[$status] ?? $status;
+    }
+
+    /**
+     * Get attendance summary for payroll
+     */
+    public function getAttendanceSummary(Request $request)
+    {
+        try {
+            $employeeId = $request->get('employee_id');
+            $period = $request->get('period'); // Format: YYYY-MM
+            
+            if (!$employeeId || !$period) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Employee ID dan periode harus diisi'
+                ], 422);
+            }
+
+            list($year, $month) = explode('-', $period);
+            $startDate = Carbon::create($year, $month, 1)->startOfMonth();
+            $endDate = Carbon::create($year, $month, 1)->endOfMonth();
+
+            // Get employee
+            $employee = Recruitment::findOrFail($employeeId);
+            
+            // Get work schedule
+            $schedule = $employee->workSchedule ?? WorkSchedule::getOrCreateForRecruitment($employeeId);
+            $scheduleIn = $schedule ? date('H:i', strtotime($schedule->clock_in)) : '08:00';
+            $scheduleOut = $schedule ? date('H:i', strtotime($schedule->clock_out)) : '17:00';
+
+            // Get all attendances for this period
+            $attendances = Attendance::where('recruitment_id', $employeeId)
+                ->whereBetween('date', [$startDate, $endDate])
+                ->get();
+
+            // Calculate summary
+            $totalPresent = 0;
+            $totalAbsent = 0;
+            $totalLateMinutes = 0;
+            $totalEarlyMinutes = 0;
+            $totalOvertimeMinutes = 0;
+            $totalHours = 0;
+            $lateDays = 0;
+
+            foreach ($attendances as $attendance) {
+                // Count present days
+                if (in_array($attendance->status, ['present', 'late'])) {
+                    $totalPresent++;
+                }
+                
+                // Count absent days
+                if (in_array($attendance->status, ['absent', 'leave', 'sick', 'permission'])) {
+                    $totalAbsent++;
+                }
+                
+                // Calculate hours worked
+                if ($attendance->clock_in && $attendance->clock_out) {
+                    $start = Carbon::parse($attendance->clock_in);
+                    $end = Carbon::parse($attendance->clock_out);
+                    $minutes = abs($end->diffInMinutes($start));
+                    
+                    if ($attendance->break_out && $attendance->break_in) {
+                        $breakStart = Carbon::parse($attendance->break_out);
+                        $breakEnd = Carbon::parse($attendance->break_in);
+                        $breakMinutes = abs($breakEnd->diffInMinutes($breakStart));
+                        $minutes = max(0, $minutes - $breakMinutes);
+                    }
+                    
+                    $totalHours += $minutes / 60;
+                }
+                
+                // Calculate late minutes
+                if ($attendance->clock_in && $scheduleIn) {
+                    $actual = Carbon::parse($attendance->clock_in);
+                    $scheduled = Carbon::parse($scheduleIn);
+                    if ($actual->gt($scheduled)) {
+                        $lateMinutes = abs($actual->diffInMinutes($scheduled));
+                        $totalLateMinutes += $lateMinutes;
+                        if ($lateMinutes > 0) {
+                            $lateDays++;
+                        }
+                    }
+                }
+                
+                // Calculate early minutes
+                if ($attendance->clock_out && $scheduleOut) {
+                    $actual = Carbon::parse($attendance->clock_out);
+                    $scheduled = Carbon::parse($scheduleOut);
+                    if ($actual->lt($scheduled)) {
+                        $totalEarlyMinutes += abs($scheduled->diffInMinutes($actual));
+                    }
+                }
+                
+                // Calculate overtime
+                if ($attendance->overtime_in && $attendance->overtime_out) {
+                    $overtimeStart = Carbon::parse($attendance->overtime_in);
+                    $overtimeEnd = Carbon::parse($attendance->overtime_out);
+                    if ($overtimeEnd->gt($overtimeStart)) {
+                        $totalOvertimeMinutes += abs($overtimeEnd->diffInMinutes($overtimeStart));
+                    }
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_present' => $totalPresent,
+                    'total_absent' => $totalAbsent,
+                    'total_hours' => round($totalHours, 2),
+                    'total_late_minutes' => $totalLateMinutes,
+                    'late_days' => $lateDays,
+                    'total_early_minutes' => $totalEarlyMinutes,
+                    'overtime_hours' => round($totalOvertimeMinutes / 60, 2),
+                    'overtime_minutes' => $totalOvertimeMinutes,
+                    'working_days' => $startDate->daysInMonth,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error getting attendance summary: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data absensi: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -38,12 +38,21 @@ return new class extends Migration
             $table->timestamp('paid_at')->nullable();
             $table->timestamps();
 
-            $table->foreign('outlet_id')->references('id_outlet')->on('outlets')->onDelete('set null');
-            $table->foreign('recruitment_id')->references('id')->on('recruitments')->onDelete('cascade');
-            $table->foreign('approved_by')->references('id')->on('users')->onDelete('set null');
-            $table->foreign('paid_by')->references('id')->on('users')->onDelete('set null');
-            
             $table->unique(['recruitment_id', 'period']);
+        });
+        
+        // Add foreign keys only if referenced tables exist
+        Schema::table('payrolls', function (Blueprint $table) {
+            if (Schema::hasTable('outlets')) {
+                $table->foreign('outlet_id')->references('id_outlet')->on('outlets')->onDelete('set null');
+            }
+            if (Schema::hasTable('recruitments')) {
+                $table->foreign('recruitment_id')->references('id')->on('recruitments')->onDelete('cascade');
+            }
+            if (Schema::hasTable('users')) {
+                $table->foreign('approved_by')->references('id')->on('users')->onDelete('set null');
+                $table->foreign('paid_by')->references('id')->on('users')->onDelete('set null');
+            }
         });
     }
 

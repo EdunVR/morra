@@ -10,8 +10,13 @@ class MesinCustomer extends Model
     use HasFactory;
 
     protected $table = 'mesin_customer';
-    protected $primaryKey = 'id_mesin_customer';
-    protected $fillable = ['id_member', 'closing_type', 'id_ongkir', 'biaya_service'];
+    protected $primaryKey = 'id';
+    public $incrementing = true;
+    protected $fillable = ['id_member', 'closing_type', 'id_ongkir', 'biaya_service', 'kode_mesin', 'nama_mesin'];
+    
+    protected $attributes = [
+        'kode_mesin' => '-'
+    ];
 
     public function member()
     {

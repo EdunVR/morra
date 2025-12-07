@@ -12,7 +12,14 @@ class OngkosKirim extends Model
     protected $fillable = [
         'id_outlet',
         'daerah',
-        'harga'
+        'harga',
+        'nama_tujuan',
+        'biaya'
+    ];
+
+    protected $attributes = [
+        'nama_tujuan' => '-',
+        'biaya' => 0
     ];
 
     protected $casts = [

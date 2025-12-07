@@ -28,15 +28,23 @@ return new class extends Migration
             
             $table->timestamps();
 
-            $table->foreign('outlet_id')->references('id_outlet')->on('outlets')->onDelete('cascade');
-            $table->foreign('salary_expense_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
-            $table->foreign('overtime_expense_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
-            $table->foreign('bonus_expense_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
-            $table->foreign('allowance_expense_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
-            $table->foreign('tax_payable_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
-            $table->foreign('loan_receivable_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
-            $table->foreign('salary_payable_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
-            $table->foreign('cash_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+        });
+        
+        // Add foreign keys only if referenced tables exist
+        Schema::table('payroll_coa_settings', function (Blueprint $table) {
+            if (Schema::hasTable('outlets')) {
+                $table->foreign('outlet_id')->references('id_outlet')->on('outlets')->onDelete('cascade');
+            }
+            if (Schema::hasTable('chart_of_accounts')) {
+                $table->foreign('salary_expense_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+                $table->foreign('overtime_expense_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+                $table->foreign('bonus_expense_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+                $table->foreign('allowance_expense_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+                $table->foreign('tax_payable_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+                $table->foreign('loan_receivable_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+                $table->foreign('salary_payable_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+                $table->foreign('cash_account_id')->references('id')->on('chart_of_accounts')->onDelete('set null');
+            }
         });
     }
 

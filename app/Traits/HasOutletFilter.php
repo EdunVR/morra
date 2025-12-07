@@ -97,4 +97,47 @@ trait HasOutletFilter
             abort(403, 'Anda tidak memiliki akses ke outlet ini.');
         }
     }
+
+    /**
+     * Get selected outlet ID from request or session
+     *
+     * @param \Illuminate\Http\Request|null $request
+     * @return int|null
+     */
+    protected function getSelectedOutlet($request = null)
+    {
+        $request = $request ?? request();
+        
+        // Get from request parameter first
+        if ($request->filled('outlet_id')) {
+            $outletId = $request->outlet_id;
+            session(['selected_outlet_id' => $outletId]);
+            return $outletId;
+        }
+
+        // Get from session
+        if (session()->has('selected_outlet_id')) {
+            return session('selected_outlet_id');
+        }
+
+        // Get first accessible outlet
+        $outlets = $this->getAccessibleOutlets();
+        if ($outlets->isNotEmpty()) {
+            $outletId = $outlets->first()->id_outlet;
+            session(['selected_outlet_id' => $outletId]);
+            return $outletId;
+        }
+
+        return null;
+    }
+
+    /**
+     * Get user's accessible outlets collection
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    protected function getAccessibleOutlets()
+    {
+        return $this->getUserOutlets();
+    }
 }

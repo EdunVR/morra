@@ -70,8 +70,9 @@ class SalesManagementController extends Controller
         $endDate = $request->get('end_date');
         $search = $request->get('search', '');
         $outletFilter = $request->get('outlet_filter', 'all');
+        $page = $request->get('page', 1);
 
-        $query = SalesInvoice::with(['member', 'user', 'items', 'outlet']);
+        $query = SalesInvoice::with(['member', 'user', 'items', 'outlet', 'paymentHistory']);
 
         // Filter status
         if ($status !== 'all') {
@@ -83,11 +84,9 @@ class SalesManagementController extends Controller
             $query->whereBetween('tanggal', [$startDate, $endDate]);
         }
 
-        // Filter outlet
+        // Filter outlet - langsung dari kolom id_outlet di sales_invoice
         if ($outletFilter !== 'all') {
-            $query->whereHas('penjualan', function($q) use ($outletFilter) {
-                $q->where('id_outlet', $outletFilter);
-            });
+            $query->where('id_outlet', $outletFilter);
         }
 
         // Search
@@ -127,7 +126,11 @@ class SalesManagementController extends Controller
             $query->orderBy($sortColumn, $sortDirection);
         }
 
-        return DataTables::of($query)
+        // Check if request is from DataTables or Alpine.js
+        // DataTables sends 'draw' parameter
+        if ($request->has('draw')) {
+            // Return DataTables format
+            return DataTables::of($query)
             ->addIndexColumn()
             ->addColumn('no_invoice_formatted', function ($row) {
                 return '<span class="font-mono text-sm">' . $row->no_invoice . '</span>';
@@ -242,6 +245,45 @@ class SalesManagementController extends Controller
             })
             ->rawColumns(['no_invoice_formatted', 'status_badge', 'sisa_hari', 'items_list', 'actions'])
             ->make(true);
+        }
+
+        // Return JSON format for Alpine.js
+        $invoices = $query->paginate(20);
+        
+        return response()->json([
+            'data' => $invoices->map(function($invoice) {
+                return [
+                    'id_sales_invoice' => $invoice->id_sales_invoice,
+                    'no_invoice' => $invoice->no_invoice,
+                    'tanggal' => $invoice->tanggal ? $invoice->tanggal->format('Y-m-d') : null,
+                    'customer_name' => $invoice->member ? $invoice->member->nama : 'Customer Tidak Ditemukan',
+                    'outlet_name' => $invoice->outlet ? $invoice->outlet->nama_outlet : '-',
+                    'subtotal' => $invoice->subtotal,
+                    'total_diskon' => $invoice->total_diskon,
+                    'total' => $invoice->total,
+                    'total_dibayar' => $invoice->total_dibayar ?? 0,
+                    'sisa_tagihan' => $invoice->sisa_tagihan ?? $invoice->total,
+                    'status' => $invoice->status,
+                    'due_date' => $invoice->due_date ? $invoice->due_date->format('Y-m-d') : null,
+                    'items' => $invoice->items->map(function($item) {
+                        return [
+                            'id_sales_invoice_item' => $item->id_sales_invoice_item,
+                            'deskripsi' => $item->deskripsi,
+                            'keterangan' => $item->keterangan,
+                            'kuantitas' => $item->kuantitas,
+                            'satuan' => $item->satuan,
+                            'harga_normal' => $item->harga_normal,
+                            'diskon' => $item->diskon,
+                            'subtotal' => $item->subtotal,
+                        ];
+                    }),
+                ];
+            }),
+            'current_page' => $invoices->currentPage(),
+            'last_page' => $invoices->lastPage(),
+            'total' => $invoices->total(),
+            'per_page' => $invoices->perPage(),
+        ]);
     }
 
     public function store(Request $request)

@@ -93,12 +93,8 @@
               </div>
             </template>
             <div x-show="senderItems.length===0" class="text-slate-500 text-sm text-center py-4">
-              <template x-if="sender">
-                Tidak ada item di outlet ini.
-              </template>
-              <template x-if="!sender">
-                Pilih outlet pengirim terlebih dahulu.
-              </template>
+              <span x-show="sender">Tidak ada item di outlet ini.</span>
+              <span x-show="!sender">Pilih outlet pengirim terlebih dahulu.</span>
             </div>
           </div>
         </div>
@@ -149,12 +145,8 @@
               </div>
             </template>
             <div x-show="receiverItems.length===0" class="text-slate-500 text-sm text-center py-4">
-              <template x-if="receiver">
-                Tidak ada item di outlet ini.
-              </template>
-              <template x-if="!receiver">
-                Pilih outlet penerima terlebih dahulu.
-              </template>
+              <span x-show="receiver">Tidak ada item di outlet ini.</span>
+              <span x-show="!receiver">Pilih outlet penerima terlebih dahulu.</span>
             </div>
           </div>
         </div>
@@ -293,28 +285,44 @@
                 </tr>
               </thead>
               <tbody>
-                <template x-for="request in requests" :key="request.id_permintaan">
+                <template x-for="(request, index) in requests" :key="request.id || index">
                   <tr class="border-t border-slate-100">
                     <td class="px-4 py-3">
-                      <div x-text="new Date(request.created_at).toLocaleDateString('id-ID')"></div>
-                      <div class="text-xs text-slate-500" x-text="new Date(request.created_at).toLocaleTimeString('id-ID')"></div>
+                      <div x-text="request.created_at ? new Date(request.created_at).toLocaleDateString('id-ID') : '-'"></div>
+                      <div class="text-xs text-slate-500" x-text="request.created_at ? new Date(request.created_at).toLocaleTimeString('id-ID') : ''"></div>
                     </td>
-                    <td class="px-4 py-3" x-text="request.outlet_asal"></td>
-                    <td class="px-4 py-3" x-text="request.outlet_tujuan"></td>
+                    <td class="px-4 py-3" x-text="request.outlet_asal || '-'"></td>
+                    <td class="px-4 py-3" x-text="request.outlet_tujuan || '-'"></td>
                     <td class="px-4 py-3">
-                      <div class="font-medium" x-text="request.item_name"></div>
-                      <div class="text-xs text-slate-500 capitalize" x-text="request.item_type"></div>
+                      <div class="font-medium" x-text="request.item_name || '-'"></div>
+                      <div class="text-xs text-slate-500 capitalize" x-text="request.item_type || ''"></div>
                     </td>
-                    <td class="px-4 py-3" x-text="request.quantity"></td>
+                    <td class="px-4 py-3" x-text="request.quantity || 0"></td>
                     <td class="px-4 py-3">
-                      <span x-html="request.status"></span>
+                      <span x-html="request.status || '-'"></span>
                     </td>
                     <td class="px-4 py-3">
-                      <div class="flex flex-wrap gap-1" x-html="request.actions"></div>
+                      <div class="flex flex-wrap gap-1">
+                        <template x-if="request.status_raw === 'menunggu'">
+                          <div class="flex gap-1">
+                            <button @click="approveTransfer(request.id)" 
+                                    class="inline-flex items-center gap-1 rounded-lg border border-green-200 text-green-700 px-2 py-1 hover:bg-green-50 text-xs">
+                              <i class="bx bx-check"></i> Setujui
+                            </button>
+                            <button @click="rejectTransfer(request.id)" 
+                                    class="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-700 px-2 py-1 hover:bg-red-50 text-xs">
+                              <i class="bx bx-x"></i> Tolak
+                            </button>
+                          </div>
+                        </template>
+                        <template x-if="request.status_raw !== 'menunggu'">
+                          <span class="text-slate-500 text-xs">-</span>
+                        </template>
+                      </div>
                     </td>
                   </tr>
                 </template>
-                <tr x-show="requests.length === 0 && !loadingRequests">
+                <tr x-show="!requests || requests.length === 0 && !loadingRequests">
                   <td colspan="7" class="px-4 py-8 text-center text-slate-500">
                     <i class='bx bx-package text-2xl mb-2 block'></i>
                     Tidak ada permintaan transfer
@@ -398,9 +406,10 @@
 
             const response = await fetch(`{{ route("admin.inventaris.transfer-gudang.data") }}?${params}`);
             const data = await response.json();
-            this.requests = data.data;
+            this.requests = Array.isArray(data.data) ? data.data : [];
           } catch (error) {
             console.error('Error loading requests:', error);
+            this.requests = [];
             this.showToastMessage('Gagal memuat daftar permintaan', 'error');
           } finally {
             this.loadingRequests = false;
@@ -648,24 +657,6 @@
       }
     }
 
-    // Global functions yang mengakses Alpine component dengan cara yang benar
-    window.transferApprove = function(requestId) {
-      // Cari component Alpine yang aktif
-      const alpineElement = document.querySelector('[x-data]');
-      if (alpineElement && alpineElement.__x) {
-        alpineElement.__x.$data.approveTransfer(requestId);
-      } else {
-        console.error('Alpine component not found');
-      }
-    };
 
-    window.transferReject = function(requestId) {
-      const alpineElement = document.querySelector('[x-data]');
-      if (alpineElement && alpineElement.__x) {
-        alpineElement.__x.$data.rejectTransfer(requestId);
-      } else {
-        console.error('Alpine component not found');
-      }
-    };
   </script>
 </x-layouts.admin>

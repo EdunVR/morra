@@ -920,7 +920,8 @@ class ServiceManagementController extends Controller
             // Buat entry terpisah untuk setiap closing type
             foreach ($produkByClosingType as $closingType => $produks) {
                 $result[] = [
-                    'id_mesin_customer' => $mesinCustomer->id_mesin_customer,
+                    'id' => $mesinCustomer->id, // Use 'id' as primary key
+                    'id_mesin_customer' => $mesinCustomer->id, // Keep for backward compatibility
                     'closing_type' => $closingType,
                     'daerah' => $mesinCustomer->ongkosKirim ? $mesinCustomer->ongkosKirim->daerah : 'Unknown',
                     'ongkos_kirim' => $mesinCustomer->ongkosKirim,

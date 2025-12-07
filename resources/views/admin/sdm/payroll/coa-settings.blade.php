@@ -52,7 +52,7 @@
                                 <select id="salary_expense_account_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
                                     <option value="">Pilih Akun</option>
                                     @foreach($expenseAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->account_code }} - {{ $account->account_name }}</option>
+                                        <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -61,7 +61,7 @@
                                 <select id="overtime_expense_account_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
                                     <option value="">Pilih Akun</option>
                                     @foreach($expenseAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->account_code }} - {{ $account->account_name }}</option>
+                                        <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -70,7 +70,7 @@
                                 <select id="bonus_expense_account_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
                                     <option value="">Pilih Akun</option>
                                     @foreach($expenseAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->account_code }} - {{ $account->account_name }}</option>
+                                        <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -79,7 +79,7 @@
                                 <select id="allowance_expense_account_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
                                     <option value="">Pilih Akun</option>
                                     @foreach($expenseAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->account_code }} - {{ $account->account_name }}</option>
+                                        <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -97,7 +97,7 @@
                                 <select id="salary_payable_account_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
                                     <option value="">Pilih Akun</option>
                                     @foreach($liabilityAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->account_code }} - {{ $account->account_name }}</option>
+                                        <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -106,7 +106,7 @@
                                 <select id="tax_payable_account_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
                                     <option value="">Pilih Akun</option>
                                     @foreach($liabilityAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->account_code }} - {{ $account->account_name }}</option>
+                                        <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -124,7 +124,7 @@
                                 <select id="loan_receivable_account_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
                                     <option value="">Pilih Akun</option>
                                     @foreach($assetAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->account_code }} - {{ $account->account_name }}</option>
+                                        <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
                                     @endforeach
                                 </select>
                                 <p class="text-xs text-slate-500 mt-1">Debit saat approve (potongan pinjaman)</p>
@@ -134,7 +134,7 @@
                                 <select id="cash_account_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
                                     <option value="">Pilih Akun</option>
                                     @foreach($assetAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->account_code }} - {{ $account->account_name }}</option>
+                                        <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
                                     @endforeach
                                 </select>
                                 <p class="text-xs text-slate-500 mt-1">Credit saat pay (pembayaran gaji)</p>
@@ -198,7 +198,6 @@
         </div>
     </div>
 
-    @push('scripts')
     <script>
         $(document).ready(function() {
             // Auto-load settings if only one outlet
@@ -206,18 +205,45 @@
                 $('#outlet_id').val('{{ $outlets[0]->id_outlet }}');
                 loadSettings();
             @endif
+            
+            // Load settings if outlet is already selected (from URL or previous selection)
+            const selectedOutlet = $('#outlet_id').val();
+            if (selectedOutlet) {
+                loadSettings();
+            }
         });
 
         async function loadSettings() {
             const outletId = $('#outlet_id').val();
-            if (!outletId) return;
+            console.log('Loading settings for outlet:', outletId);
+            
+            if (!outletId) {
+                console.log('No outlet selected, clearing form');
+                // Clear all fields if no outlet selected
+                $('#salary_expense_account_id').val('');
+                $('#overtime_expense_account_id').val('');
+                $('#bonus_expense_account_id').val('');
+                $('#allowance_expense_account_id').val('');
+                $('#tax_payable_account_id').val('');
+                $('#loan_receivable_account_id').val('');
+                $('#salary_payable_account_id').val('');
+                $('#cash_account_id').val('');
+                return;
+            }
 
             try {
-                const response = await fetch(`{{ route('sdm.payroll.coa.settings') }}?outlet_id=${outletId}`);
+                const url = `{{ route('sdm.payroll.coa.settings') }}?outlet_id=${outletId}`;
+                console.log('Fetching from URL:', url);
+                
+                const response = await fetch(url);
                 const result = await response.json();
+                
+                console.log('API Response:', result);
 
                 if (result.success && result.data) {
                     const data = result.data;
+                    console.log('Setting form values with data:', data);
+                    
                     $('#salary_expense_account_id').val(data.salary_expense_account_id || '');
                     $('#overtime_expense_account_id').val(data.overtime_expense_account_id || '');
                     $('#bonus_expense_account_id').val(data.bonus_expense_account_id || '');
@@ -226,10 +252,32 @@
                     $('#loan_receivable_account_id').val(data.loan_receivable_account_id || '');
                     $('#salary_payable_account_id').val(data.salary_payable_account_id || '');
                     $('#cash_account_id').val(data.cash_account_id || '');
+                    
+                    console.log('Form values set successfully');
+                } else {
+                    console.log('No settings found for this outlet, clearing form');
+                    // Clear all fields if no settings found
+                    $('#salary_expense_account_id').val('');
+                    $('#overtime_expense_account_id').val('');
+                    $('#bonus_expense_account_id').val('');
+                    $('#allowance_expense_account_id').val('');
+                    $('#tax_payable_account_id').val('');
+                    $('#loan_receivable_account_id').val('');
+                    $('#salary_payable_account_id').val('');
+                    $('#cash_account_id').val('');
                 }
             } catch (error) {
                 console.error('Error loading settings:', error);
             }
+        }
+
+        function showSuccessIndicator() {
+            // Add green border to form temporarily
+            const form = $('#coaSettingForm');
+            form.addClass('border-2 border-green-500');
+            setTimeout(() => {
+                form.removeClass('border-2 border-green-500');
+            }, 2000);
         }
 
         $('#coaSettingForm').on('submit', async function(e) {
@@ -248,6 +296,8 @@
                 _token: '{{ csrf_token() }}'
             };
 
+            console.log('Submitting COA settings:', data);
+
             try {
                 const response = await fetch('{{ route('sdm.payroll.coa.store') }}', {
                     method: 'POST',
@@ -259,10 +309,15 @@
                 });
 
                 const result = await response.json();
+                console.log('Save response:', result);
 
                 if (result.success) {
                     alert(result.message);
-                    window.location.href = '{{ route('sdm.payroll.index') }}';
+                    console.log('Reloading settings after save...');
+                    // Reload settings to show saved data
+                    await loadSettings();
+                    // Optional: Show success indicator
+                    showSuccessIndicator();
                 } else {
                     alert(result.message || 'Terjadi kesalahan');
                 }
@@ -272,5 +327,4 @@
             }
         });
     </script>
-    @endpush
 </x-layouts.admin>

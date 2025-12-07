@@ -122,7 +122,7 @@
               </div>
             </div>
             <div class="mt-3 flex gap-2">
-              <button x-on:click="showHargaBeli(m)" class="flex-1 rounded-lg bg-emerald-600 text-white px-3 py-2 hover:bg-emerald-700 text-sm">
+              <button x-on:click.prevent="showHargaBeli(m)" class="flex-1 rounded-lg bg-emerald-600 text-white px-3 py-2 hover:bg-emerald-700 text-sm">
                 <i class='bx bx-show'></i> Harga Beli
               </button>
               @hasPermission('inventaris.bahan.update')
@@ -175,7 +175,7 @@
                 <td class="px-4 py-3" x-text="m.unit"></td>
                 <td class="px-4 py-3">
                   <div class="flex gap-2">
-                    <button x-on:click="showHargaBeli(m)" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 hover:bg-emerald-700 text-sm">
+                    <button x-on:click.prevent="showHargaBeli(m)" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 hover:bg-emerald-700 text-sm">
                       <i class='bx bx-show'></i> Harga Beli
                     </button>
                     @hasPermission('inventaris.bahan.update')
@@ -302,19 +302,53 @@
     </div>
 
     <!-- Modal Harga Beli -->
-    <div x-show="showHargaModal" x-transition.opacity class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-3">
+    <div x-show="showHargaModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" x-cloak style="display: none;">
       <div x-on:click.outside="showHargaModal=false" class="w-full max-w-4xl bg-white rounded-2xl shadow-float max-h-[90vh] flex flex-col overflow-hidden">
         <div class="px-4 sm:px-5 py-3 border-b border-slate-100 flex items-center justify-between">
           <div class="font-semibold truncate">Detail Harga Beli - <span x-text="selectedBahan?.name"></span></div>
-          <button class="p-2 -m-2 hover:bg-slate-100 rounded-lg" x-on:click="showHargaModal=false">
+          <button class="p-2 -m-2 hover:bg-slate-100 rounded-lg" x-on:click.stop="showHargaModal=false">
             <i class='bx bx-x text-xl'></i>
           </button>
         </div>
         <div class="px-4 sm:px-5 py-4 overflow-y-auto flex-1">
-          <div class="text-center text-slate-500 py-8">
-            <i class='bx bx-info-circle text-4xl mb-2'></i>
-            <p>Fitur detail harga beli akan diimplementasikan selanjutnya</p>
-          </div>
+          <template x-if="!selectedBahan?.harga_bahan || selectedBahan.harga_bahan.length === 0">
+            <div class="text-center text-slate-500 py-8">
+              <i class='bx bx-info-circle text-4xl mb-2'></i>
+              <p>Belum ada data harga beli untuk bahan ini</p>
+            </div>
+          </template>
+          
+          <template x-if="selectedBahan?.harga_bahan && selectedBahan.harga_bahan.length > 0">
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-600">Tanggal</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-slate-600">Harga Beli</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-slate-600">Stok</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-slate-600">Total Nilai</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <template x-for="(detail, index) in selectedBahan.harga_bahan" :key="index">
+                    <tr class="hover:bg-slate-50">
+                      <td class="px-4 py-3 text-sm" x-text="formatDate(detail.created_at)"></td>
+                      <td class="px-4 py-3 text-sm text-right" x-text="formatRupiah(detail.harga_beli)"></td>
+                      <td class="px-4 py-3 text-sm text-right" x-text="parseFloat(detail.stok || 0).toLocaleString('id-ID')"></td>
+                      <td class="px-4 py-3 text-sm text-right font-medium" x-text="formatRupiah(detail.harga_beli * detail.stok)"></td>
+                    </tr>
+                  </template>
+                </tbody>
+                <tfoot class="bg-slate-50 border-t-2 border-slate-300">
+                  <tr>
+                    <td colspan="2" class="px-4 py-3 text-sm font-semibold">Total</td>
+                    <td class="px-4 py-3 text-sm text-right font-semibold" x-text="getTotalStok().toLocaleString('id-ID')"></td>
+                    <td class="px-4 py-3 text-sm text-right font-semibold" x-text="formatRupiah(getTotalNilai())"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -412,7 +446,8 @@
               stock: item.stock || item.harga_bahan_sum_stok || 0,
               unit: item.unit || item.nama_satuan,
               note: item.note || item.catatan || '',
-              is_active: item.is_active !== undefined ? item.is_active : true
+              is_active: item.is_active !== undefined ? item.is_active : true,
+              harga_bahan: item.harga_bahan || []
             }));
           } catch (error) {
             console.error('Error fetching data:', error);
@@ -483,7 +518,7 @@
         async openEdit(item){ 
           try {
             ModalLoader.show();
-            const response = await fetch(`{{ route('admin.inventaris.bahan.edit', '') }}/${item.id}`);
+            const response = await fetch(`{{ route('admin.inventaris.bahan.edit', ':id') }}`.replace(':id', item.id));
             const data = await response.json();
             
             this.form = { 
@@ -599,8 +634,73 @@
           }
         },
 
-        showHargaBeli(bahan) {
-          this.selectedBahan = bahan;
+        formatDate(dateString) {
+          if (!dateString) return '-';
+          const date = new Date(dateString);
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        },
+
+        formatRupiah(amount) {
+          const num = parseFloat(amount || 0);
+          return 'Rp ' + Math.round(num).toLocaleString('id-ID');
+        },
+
+        getTotalStok() {
+          if (!this.selectedBahan?.harga_bahan) return 0;
+          return this.selectedBahan.harga_bahan.reduce((sum, d) => sum + parseFloat(d.stok || 0), 0);
+        },
+
+        getTotalNilai() {
+          if (!this.selectedBahan?.harga_bahan) return 0;
+          return this.selectedBahan.harga_bahan.reduce((sum, d) => {
+            return sum + (parseFloat(d.harga_beli || 0) * parseFloat(d.stok || 0));
+          }, 0);
+        },
+
+        async showHargaBeli(bahan) {
+          // Prevent multiple calls
+          if (this.showHargaModal) return;
+          
+          console.log('Selected Bahan:', bahan);
+          
+          // Parse harga_bahan jika masih string JSON
+          let hargaBahan = bahan.harga_bahan;
+          if (typeof hargaBahan === 'string') {
+            try {
+              hargaBahan = JSON.parse(hargaBahan);
+              console.log('Parsed from string:', hargaBahan);
+            } catch (e) {
+              console.error('Failed to parse harga_bahan:', e);
+              hargaBahan = [];
+            }
+          }
+          
+          // Jika harga_bahan belum ada atau kosong, fetch ulang dari server
+          if (!hargaBahan || hargaBahan.length === 0) {
+            try {
+              const response = await fetch(`{{ url('admin/inventaris/bahan') }}/${bahan.id}/edit`);
+              const data = await response.json();
+              hargaBahan = data.harga_bahan || [];
+              console.log('Fetched from server:', hargaBahan);
+            } catch (error) {
+              console.error('Error fetching harga bahan:', error);
+              hargaBahan = [];
+            }
+          }
+          
+          console.log('Final Harga Bahan:', hargaBahan);
+          console.log('Is Array:', Array.isArray(hargaBahan));
+          console.log('Length:', hargaBahan?.length);
+          console.log('First Item:', hargaBahan?.[0]);
+          
+          // Set selectedBahan dengan data yang sudah di-parse
+          this.selectedBahan = {
+            ...bahan,
+            harga_bahan: Array.isArray(hargaBahan) ? hargaBahan : []
+          };
           this.showHargaModal = true;
         },
 

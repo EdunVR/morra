@@ -12,6 +12,16 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+// Attendance API for Fingerprint Integration
+Route::prefix('attendance')->group(function () {
+    Route::post('/check-in', [App\Http\Controllers\Api\AttendanceController::class, 'checkIn']);
+    Route::post('/check-out', [App\Http\Controllers\Api\AttendanceController::class, 'checkOut']);
+    Route::post('/store', [App\Http\Controllers\Api\AttendanceController::class, 'store']);
+    Route::get('/employee/{fingerprint_id}', [App\Http\Controllers\Api\AttendanceController::class, 'getEmployeeByFingerprint']);
+    Route::get('/today/{employee_id}', [App\Http\Controllers\Api\AttendanceController::class, 'getTodayAttendance']);
+});
+
+// Legacy routes (for backward compatibility)
 Route::post('/attendance', [AttendanceController::class, 'storeApi']);
 Route::get('/available-fingerprint-id', [FingerprintController::class, 'getAvailableId']);
 Route::get('/employee/{fingerprint_id}', [FingerprintController::class, 'getEmployeeByFingerprintId']);

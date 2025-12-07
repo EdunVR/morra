@@ -1,0 +1,673 @@
+<x-layouts.admin>
+    <x-slot name="title">Manajemen Absensi</x-slot>
+    
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 mb-0 text-gray-800">Manajemen Absensi</h1>
+                <p class="text-muted mb-0">Kelola data kehadiran karyawan</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-info mr-2" onclick="showSetWorkHoursModal()">
+                    <i class="fas fa-clock"></i> Set Jam Kerja
+                </button>
+                <button type="button" class="btn btn-primary" onclick="showAddModal()">
+                    <i class="fas fa-plus"></i> Tambah Absensi
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Hadir Hari Ini</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-hadir">0</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-check-circle fa-2x text-success"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-warning shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Terlambat</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-terlambat">0</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-clock fa-2x text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-danger shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Tidak Hadir</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-tidak-hadir">0</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-times-circle fa-2x text-danger"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-info shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Rata-rata Jam Kerja</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-avg-hours">0</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-business-time fa-2x text-info"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs & Filter Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <!-- Tabs -->
+                <ul class="nav nav-tabs card-header-tabs" id="attendanceTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="daily-tab" data-toggle="tab" href="#daily" role="tab">
+                            <i class="fas fa-calendar-day"></i> Harian
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="monthly-tab" data-toggle="tab" href="#monthly" role="tab">
+                            <i class="fas fa-calendar-alt"></i> Bulanan
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <!-- Filter Section -->
+                <div class="row mb-3">
+                    <div class="col-md-3" id="filter-date-container">
+                        <label>Tanggal</label>
+                        <input type="date" class="form-control" id="filter-date">
+                    </div>
+                    <div class="col-md-3" id="filter-month-container" style="display:none;">
+                        <label>Bulan</label>
+                        <select class="form-control" id="filter-month">
+                            <option value="1">Januari</option>
+                            <option value="2">Februari</option>
+                            <option value="3">Maret</option>
+                            <option value="4">April</option>
+                            <option value="5">Mei</option>
+                            <option value="6">Juni</option>
+                            <option value="7">Juli</option>
+                            <option value="8">Agustus</option>
+                            <option value="9">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Desember</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3" id="filter-year-container" style="display:none;">
+                        <label>Tahun</label>
+                        <select class="form-control" id="filter-year"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>&nbsp;</label><br>
+                        <button class="btn btn-primary" onclick="loadTabData()">
+                            <i class="fas fa-search"></i> Filter
+                        </button>
+                        <button class="btn btn-success" onclick="exportData()">
+                            <i class="fas fa-file-excel"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="attendanceTabContent">
+                    <!-- Daily Tab -->
+                    <div class="tab-pane fade show active" id="daily" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover" id="dailyTable" width="100%">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>No</th>
+                                        <th>ID Fingerprint</th>
+                                        <th>Nama</th>
+                                        <th>Jabatan</th>
+                                        <th>Jadwal Masuk</th>
+                                        <th>Jadwal Pulang</th>
+                                        <th>Status</th>
+                                        <th>Jam Masuk</th>
+                                        <th>Jam Keluar</th>
+                                        <th>Total Jam</th>
+                                        <th>Terlambat</th>
+                                        <th>Pulang Cepat</th>
+                                        <th>Lembur</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Tab -->
+                    <div class="tab-pane fade" id="monthly" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm" id="monthlyTable" width="100%">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th rowspan="2">No</th>
+                                        <th rowspan="2">Nama</th>
+                                        <th rowspan="2">Jabatan</th>
+                                        <th colspan="31" class="text-center">Tanggal</th>
+                                        <th colspan="5" class="text-center">Summary</th>
+                                    </tr>
+                                    <tr id="monthly-dates-header">
+                                        <!-- Dates will be generated dynamically -->
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Attendance Modal -->
+    <div class="modal fade" id="attendanceModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Tambah Absensi</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <form id="attendanceForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="attendance_id">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Karyawan <span class="text-danger">*</span></label>
+                                    <select class="form-control" id="employee_id" required>
+                                        <option value="">Pilih Karyawan</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Tanggal <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" id="date" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Jam Masuk</label>
+                                    <input type="time" class="form-control" id="clock_in">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Jam Keluar</label>
+                                    <input type="time" class="form-control" id="clock_out">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Status <span class="text-danger">*</span></label>
+                                    <select class="form-control" id="status" required>
+                                        <option value="present">Hadir</option>
+                                        <option value="late">Terlambat</option>
+                                        <option value="leave">Izin</option>
+                                        <option value="sick">Sakit</option>
+                                        <option value="absent">Alpha</option>
+                                        <option value="permission">Izin Khusus</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Keterangan</label>
+                            <textarea class="form-control" id="notes" rows="3"></textarea>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <small>
+                                <i class="fas fa-info-circle"></i> 
+                                Terlambat, pulang cepat, lembur, dan total jam kerja akan dihitung otomatis.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Set Work Hours Modal -->
+    <div class="modal fade" id="setWorkHoursModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-clock"></i> Set Jam Kerja
+                    </h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <form id="setWorkHoursForm">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Karyawan</label>
+                            <select class="form-control" id="work_employee_id">
+                                <option value="">Semua Karyawan</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                Kosongkan untuk set jadwal semua karyawan
+                            </small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Jam Masuk <span class="text-danger">*</span></label>
+                                    <input type="time" class="form-control" id="work_clock_in" value="08:00" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Jam Pulang <span class="text-danger">*</span></label>
+                                    <input type="time" class="form-control" id="work_clock_out" value="17:00" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="apply_to_all">
+                            <label class="custom-control-label" for="apply_to_all">
+                                Terapkan ke semua karyawan aktif
+                            </label>
+                        </div>
+
+                        <div class="alert alert-warning mt-3">
+                            <small>
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Jadwal kerja akan digunakan untuk menghitung keterlambatan dan lembur.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-save"></i> Simpan Jadwal
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <script>
+        let dailyDataTable;
+        let monthlyDataTable;
+        let currentTab = 'daily';
+
+        $(document).ready(function() {
+            initializePage();
+            loadEmployees();
+            loadStatistics();
+            
+            // Tab switching
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                currentTab = $(e.target).attr('href').replace('#', '');
+                toggleFilterInputs();
+                loadTabData();
+            });
+
+            // Form submissions
+            $('#attendanceForm').on('submit', function(e) {
+                e.preventDefault();
+                saveAttendance();
+            });
+
+            $('#setWorkHoursForm').on('submit', function(e) {
+                e.preventDefault();
+                saveWorkHours();
+            });
+
+            // Apply to all checkbox
+            $('#apply_to_all').on('change', function() {
+                if ($(this).is(':checked')) {
+                    $('#work_employee_id').val('').prop('disabled', true);
+                } else {
+                    $('#work_employee_id').prop('disabled', false);
+                }
+            });
+        });
+
+        function initializePage() {
+            // Set default date
+            const today = new Date();
+            $('#filter-date').val(today.toISOString().split('T')[0]);
+            $('#date').val(today.toISOString().split('T')[0]);
+            
+            // Set default month/year
+            $('#filter-month').val(today.getMonth() + 1);
+            
+            // Populate year dropdown
+            const currentYear = today.getFullYear();
+            for (let year = currentYear - 2; year <= currentYear + 1; year++) {
+                $('#filter-year').append(`<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`);
+            }
+
+            // Initialize daily table
+            initializeDailyTable();
+        }
+
+        function toggleFilterInputs() {
+            if (currentTab === 'daily') {
+                $('#filter-date-container').show();
+                $('#filter-month-container, #filter-year-container').hide();
+            } else {
+                $('#filter-date-container').hide();
+                $('#filter-month-container, #filter-year-container').show();
+            }
+        }
+
+        function initializeDailyTable() {
+            dailyDataTable = $('#dailyTable').DataTable({
+                processing: true,
+                ajax: {
+                    url: '{{ route("sdm.attendance.daily.table") }}',
+                    data: function(d) {
+                        d.date = $('#filter-date').val();
+                    }
+                },
+                columns: [
+                    { data: 'DT_RowIndex', orderable: false, searchable: false },
+                    { data: 'fingerprint_id' },
+                    { data: 'employee_name' },
+                    { data: 'position' },
+                    { data: 'schedule_in' },
+                    { data: 'schedule_out' },
+                    { data: 'status', className: 'text-center' },
+                    { data: 'clock_in' },
+                    { data: 'clock_out' },
+                    { data: 'hours_worked' },
+                    { data: 'late_minutes', className: 'text-center' },
+                    { data: 'early_minutes', className: 'text-center' },
+                    { data: 'overtime_minutes', className: 'text-center' },
+                    { data: 'action', orderable: false, searchable: false }
+                ],
+                pageLength: 25,
+                order: [[2, 'asc']]
+            });
+        }
+
+        function loadTabData() {
+            if (currentTab === 'daily') {
+                dailyDataTable.ajax.reload();
+            } else {
+                loadMonthlyData();
+            }
+            loadStatistics();
+        }
+
+        function loadMonthlyData() {
+            const month = $('#filter-month').val();
+            const year = $('#filter-year').val();
+
+            $.get('{{ route("sdm.attendance.monthly.table") }}', {
+                month: month,
+                year: year
+            }, function(response) {
+                renderMonthlyTable(response.data, response.days_in_month);
+            });
+        }
+
+        function renderMonthlyTable(data, daysInMonth) {
+            // Generate date headers
+            let dateHeaders = '';
+            for (let day = 1; day <= daysInMonth; day++) {
+                dateHeaders += `<th class="text-center" style="min-width:30px;">${day}</th>`;
+            }
+            dateHeaders += '<th>Hadir</th><th>Absen</th><th>Terlambat</th><th>Pulang Cepat</th><th>Lembur (jam)</th>';
+            $('#monthly-dates-header').html(dateHeaders);
+
+            // Generate table body
+            let tbody = '';
+            data.forEach(row => {
+                tbody += '<tr>';
+                tbody += `<td>${row.DT_RowIndex}</td>`;
+                tbody += `<td>${row.employee_name}</td>`;
+                tbody += `<td>${row.position}</td>`;
+                
+                // Days
+                for (let day = 1; day <= daysInMonth; day++) {
+                    tbody += `<td class="text-center">${row['day_' + day] || '-'}</td>`;
+                }
+                
+                // Summary
+                tbody += `<td class="text-center"><strong>${row.total_present}</strong></td>`;
+                tbody += `<td class="text-center"><strong>${row.total_absent}</strong></td>`;
+                tbody += `<td class="text-center">${row.total_late}</td>`;
+                tbody += `<td class="text-center">${row.total_early}</td>`;
+                tbody += `<td class="text-center">${row.total_overtime}</td>`;
+                tbody += '</tr>';
+            });
+
+            $('#monthlyTable tbody').html(tbody);
+        }
+
+        function loadEmployees() {
+            $.get('{{ route("sdm.attendance.employees") }}', function(response) {
+                const select = $('#employee_id, #work_employee_id');
+                select.find('option:not(:first)').remove();
+                
+                response.forEach(emp => {
+                    select.append(`<option value="${emp.id}">${emp.nama} - ${emp.jabatan}</option>`);
+                });
+            });
+        }
+
+        function loadStatistics() {
+            const date = $('#filter-date').val();
+            
+            $.get('{{ route("sdm.attendance.statistics") }}', {
+                start_date: date,
+                end_date: date
+            }, function(response) {
+                $('#stat-hadir').text(response.hadir || 0);
+                $('#stat-terlambat').text(response.terlambat || 0);
+                $('#stat-tidak-hadir').text(response.tidak_hadir || 0);
+                $('#stat-avg-hours').text((response.avg_hours || 0).toFixed(1) + ' jam');
+            });
+        }
+
+        function showAddModal() {
+            $('#modalTitle').text('Tambah Absensi');
+            $('#attendanceForm')[0].reset();
+            $('#attendance_id').val('');
+            $('#date').val($('#filter-date').val());
+            $('#attendanceModal').modal('show');
+        }
+
+        function addAttendance(employeeId, date) {
+            $('#modalTitle').text('Tambah Absensi');
+            $('#attendanceForm')[0].reset();
+            $('#attendance_id').val('');
+            $('#employee_id').val(employeeId);
+            $('#date').val(date);
+            $('#attendanceModal').modal('show');
+        }
+
+        function editAttendance(id) {
+            $.get(`{{ url('admin/sdm/attendance') }}/${id}`, function(response) {
+                $('#modalTitle').text('Edit Absensi');
+                $('#attendance_id').val(response.id);
+                $('#employee_id').val(response.employee_id);
+                $('#date').val(response.date);
+                $('#clock_in').val(response.clock_in);
+                $('#clock_out').val(response.clock_out);
+                $('#status').val(response.status);
+                $('#notes').val(response.notes);
+                $('#attendanceModal').modal('show');
+            });
+        }
+
+        function saveAttendance() {
+            const id = $('#attendance_id').val();
+            const url = id ? `{{ url('admin/sdm/attendance') }}/${id}` : '{{ route("sdm.attendance.store") }}';
+            const method = id ? 'PUT' : 'POST';
+
+            const data = {
+                employee_id: $('#employee_id').val(),
+                date: $('#date').val(),
+                clock_in: $('#clock_in').val(),
+                clock_out: $('#clock_out').val(),
+                status: $('#status').val(),
+                notes: $('#notes').val(),
+                _token: '{{ csrf_token() }}'
+            };
+
+            $.ajax({
+                url: url,
+                method: method,
+                data: data,
+                success: function(response) {
+                    $('#attendanceModal').modal('hide');
+                    Swal.fire('Berhasil!', response.message, 'success');
+                    loadTabData();
+                },
+                error: function(xhr) {
+                    const errors = xhr.responseJSON?.errors;
+                    if (errors) {
+                        let errorMsg = '';
+                        Object.values(errors).forEach(err => {
+                            errorMsg += err[0] + '<br>';
+                        });
+                        Swal.fire('Error!', errorMsg, 'error');
+                    } else {
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Terjadi kesalahan', 'error');
+                    }
+                }
+            });
+        }
+
+        function deleteAttendance(id) {
+            Swal.fire({
+                title: 'Hapus Data?',
+                text: 'Data absensi akan dihapus permanen',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: `{{ url('admin/sdm/attendance') }}/${id}`,
+                        method: 'DELETE',
+                        data: { _token: '{{ csrf_token() }}' },
+                        success: function(response) {
+                            Swal.fire('Terhapus!', response.message, 'success');
+                            loadTabData();
+                        },
+                        error: function(xhr) {
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Gagal menghapus data', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function showSetWorkHoursModal() {
+            $('#setWorkHoursForm')[0].reset();
+            $('#work_clock_in').val('08:00');
+            $('#work_clock_out').val('17:00');
+            $('#apply_to_all').prop('checked', false);
+            $('#work_employee_id').prop('disabled', false);
+            $('#setWorkHoursModal').modal('show');
+        }
+
+        function saveWorkHours() {
+            const data = {
+                clock_in: $('#work_clock_in').val(),
+                clock_out: $('#work_clock_out').val(),
+                employee_id: $('#work_employee_id').val(),
+                apply_to_all: $('#apply_to_all').is(':checked'),
+                _token: '{{ csrf_token() }}'
+            };
+
+            $.ajax({
+                url: '{{ route("sdm.attendance.set.work.hours") }}',
+                method: 'POST',
+                data: data,
+                success: function(response) {
+                    $('#setWorkHoursModal').modal('hide');
+                    Swal.fire('Berhasil!', response.message, 'success');
+                    loadTabData();
+                },
+                error: function(xhr) {
+                    Swal.fire('Error!', xhr.responseJSON?.message || 'Terjadi kesalahan', 'error');
+                }
+            });
+        }
+
+        function exportData() {
+            if (currentTab === 'daily') {
+                const date = $('#filter-date').val();
+                window.open(`{{ route('sdm.attendance.export.excel') }}?start_date=${date}&end_date=${date}`, '_blank');
+            } else {
+                const month = $('#filter-month').val();
+                const year = $('#filter-year').val();
+                const startDate = `${year}-${month.padStart(2, '0')}-01`;
+                const lastDay = new Date(year, month, 0).getDate();
+                const endDate = `${year}-${month.padStart(2, '0')}-${lastDay}`;
+                window.open(`{{ route('sdm.attendance.export.excel') }}?start_date=${startDate}&end_date=${endDate}`, '_blank');
+            }
+        }
+    </script>
+</x-layouts.admin>

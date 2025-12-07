@@ -230,7 +230,7 @@ class TransferGudangController extends Controller
     }
 
     /**
-     * Mengambil data permintaan untuk datatable
+     * Mengambil data permintaan untuk Alpine.js (bukan DataTables)
      */
     public function data(Request $request)
     {
@@ -244,66 +244,43 @@ class TransferGudangController extends Controller
 
             $permintaan = $query->latest()->get();
 
-            return datatables()
-                ->of($permintaan)
-                ->addIndexColumn()
-                ->addColumn('outlet_asal', function ($item) {
-                    return $item->outletAsal->nama_outlet ?? '-';
-                })
-                ->addColumn('outlet_tujuan', function ($item) {
-                    return $item->outletTujuan->nama_outlet ?? '-';
-                })
-                ->addColumn('item_name', function ($item) {
-                    if ($item->id_produk) {
-                        return $item->produk->nama_produk ?? $item->nama_produk;
-                    } elseif ($item->id_bahan) {
-                        return $item->bahan->nama_bahan ?? $item->nama_bahan;
-                    } elseif ($item->id_inventori) {
-                        return $item->inventori->nama_barang ?? $item->nama_barang;
-                    }
-                    return '-';
-                })
-                ->addColumn('item_type', function ($item) {
-                    if ($item->id_produk) return 'Produk';
-                    if ($item->id_bahan) return 'Bahan';
-                    if ($item->id_inventori) return 'Inventori';
-                    return '-';
-                })
-                ->addColumn('quantity', function ($item) {
-                    return $item->jumlah;
-                })
-                ->addColumn('status', function ($item) {
-                    $badgeClass = [
-                        'menunggu' => 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                        'disetujui' => 'bg-green-100 text-green-800 border-green-200',
-                        'ditolak' => 'bg-red-100 text-red-800 border-red-200'
-                    ][$item->status] ?? 'bg-gray-100 text-gray-800 border-gray-200';
+            // Format data untuk Alpine.js
+            $data = $permintaan->map(function ($item) {
+                $badgeClass = [
+                    'menunggu' => 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                    'disetujui' => 'bg-green-100 text-green-800 border-green-200',
+                    'ditolak' => 'bg-red-100 text-red-800 border-red-200'
+                ][$item->status] ?? 'bg-gray-100 text-gray-800 border-gray-200';
 
-                    return '<span class="px-2 py-1 rounded-full text-xs border ' . $badgeClass . '">' . 
-                           ucfirst($item->status) . '</span>';
-                })
-                ->addColumn('actions', function ($item) {
-                    $actions = '';
-                    
-                    if ($item->status === 'menunggu') {
-                        $actions .= '
-                            <button @click="approveTransfer(' . $item->id_permintaan . ')" 
-                                    class="inline-flex items-center gap-1 rounded-lg border border-green-200 text-green-700 px-2 py-1 hover:bg-green-50 text-xs">
-                                <i class="bx bx-check"></i> Setujui
-                            </button>
-                            <button @click="rejectTransfer(' . $item->id_permintaan . ')" 
-                                    class="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-700 px-2 py-1 hover:bg-red-50 text-xs">
-                                <i class="bx bx-x"></i> Tolak
-                            </button>
-                        ';
-                    } else {
-                        $actions .= '<span class="text-slate-500 text-xs">-</span>';
-                    }
+                $itemName = '-';
+                $itemType = '-';
+                
+                if ($item->id_produk) {
+                    $itemName = $item->produk->nama_produk ?? $item->nama_produk;
+                    $itemType = 'Produk';
+                } elseif ($item->id_bahan) {
+                    $itemName = $item->bahan->nama_bahan ?? $item->nama_bahan;
+                    $itemType = 'Bahan';
+                } elseif ($item->id_inventori) {
+                    $itemName = $item->inventori->nama_barang ?? $item->nama_barang;
+                    $itemType = 'Inventori';
+                }
 
-                    return $actions;
-                })
-                ->rawColumns(['status', 'actions'])
-                ->make(true);
+                return [
+                    'id' => $item->id,
+                    'created_at' => $item->created_at,
+                    'outlet_asal' => $item->outletAsal->nama_outlet ?? '-',
+                    'outlet_tujuan' => $item->outletTujuan->nama_outlet ?? '-',
+                    'item_name' => $itemName,
+                    'item_type' => $itemType,
+                    'quantity' => $item->jumlah,
+                    'status' => '<span class="px-2 py-1 rounded-full text-xs border ' . $badgeClass . '">' . 
+                               ucfirst($item->status) . '</span>',
+                    'status_raw' => $item->status, // Raw status for Alpine.js conditionals
+                ];
+            });
+
+            return response()->json(['data' => $data]);
 
         } catch (\Exception $e) {
             Log::error('Error getting transfer data: ' . $e->getMessage());
@@ -448,8 +425,19 @@ class TransferGudangController extends Controller
                 'merk' => $permintaan->produk->merk ?? null,
                 'diskon' => $permintaan->produk->diskon ?? 0,
                 'harga_jual' => $permintaan->produk->harga_jual ?? 0,
+                'spesifikasi' => $permintaan->produk->spesifikasi ?? null,
+                'tipe_produk' => $permintaan->produk->tipe_produk ?? 'barang_dagang',
+                'track_inventory' => $permintaan->produk->track_inventory ?? true,
+                'metode_hpp' => $permintaan->produk->metode_hpp ?? 'rata_rata',
+                'stok_minimum' => $permintaan->produk->stok_minimum ?? 0,
+                'is_active' => $permintaan->produk->is_active ?? true,
             ]
         );
+
+        // Salin gambar produk jika produk baru dibuat dan belum punya gambar
+        if ($produkTujuan->wasRecentlyCreated || !$produkTujuan->images()->exists()) {
+            $this->copyProductImages($produkAsal, $produkTujuan);
+        }
 
         foreach ($hppTerpakai as $data) {
             $produkTujuan->hppProduk()->create([
@@ -457,6 +445,43 @@ class TransferGudangController extends Controller
                 'hpp' => $data['hpp'],
                 'created_at' => $data['created_at'],
             ]);
+        }
+    }
+
+    /**
+     * Salin gambar produk dari produk asal ke produk tujuan
+     */
+    private function copyProductImages($produkAsal, $produkTujuan)
+    {
+        try {
+            // Load images dengan eager loading
+            $images = $produkAsal->images()->get();
+            
+            if ($images->isEmpty()) {
+                Log::info("Produk {$produkAsal->nama_produk} tidak memiliki gambar untuk disalin");
+                return; // Tidak ada gambar untuk disalin
+            }
+
+            $copiedCount = 0;
+            foreach ($images as $image) {
+                // Salin record gambar dengan path yang sama (hanya field yang ada di tabel)
+                $newImage = $produkTujuan->images()->create([
+                    'id_produk' => $produkTujuan->id_produk,
+                    'path' => $image->path,
+                    'is_primary' => $image->is_primary ?? false,
+                ]);
+                
+                if ($newImage) {
+                    $copiedCount++;
+                    Log::debug("Gambar tersalin: {$image->path} -> Produk ID {$produkTujuan->id_produk}");
+                }
+            }
+
+            Log::info("✅ Berhasil menyalin {$copiedCount} gambar dari produk '{$produkAsal->nama_produk}' (ID: {$produkAsal->id_produk}) ke produk di outlet tujuan (ID: {$produkTujuan->id_produk})");
+        } catch (\Exception $e) {
+            // Log error tapi jangan gagalkan transfer
+            Log::error("❌ Gagal menyalin gambar produk: " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
         }
     }
 

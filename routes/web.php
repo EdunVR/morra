@@ -58,6 +58,7 @@ use App\Http\Controllers\EquityChangeController;
 use App\Http\Controllers\BalanceSheetController;
 use App\Http\Controllers\CashFlowController;
 use App\Http\Controllers\RabTemplateController;
+use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\JemaahController;
 use App\Http\Controllers\InvestorAuthController;
 use App\Http\Controllers\ProfileController;
@@ -86,8 +87,10 @@ use App\Http\Controllers\CrmDashboardController;
 use App\Http\Controllers\RecruitmentManagementController;
 use App\Http\Controllers\PayrollManagementController;
 use App\Http\Controllers\PayrollCoaSettingController;
+use App\Http\Controllers\AttendanceManagementController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\RoleManagementController;
+use App\Http\Controllers\ProductionController;
 
 //Route::get('/', fn () => redirect()->route('login'));
 Route::get('/', function () {
@@ -125,8 +128,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::view('/penjualan',  'admin.penjualan.index')->name('penjualan.index');
     Route::view('/penjualan/invoice',  'admin.penjualan.invoice.index')->name('penjualan.invoice.index');
     Route::view('/pembelian/supplier',  'admin.pembelian.supplier.index')->name('pembelian.supplier.index');
-    Route::view('/produksi',   'admin.produksi.index')->name('produksi');
-    Route::view('/produksi/produksi',  'admin.produksi.produksi.index')->name('produksi.produksi.index');
+    // Route produksi.produksi.index akan dihandle oleh controller di bawah
     Route::view('/rantai-pasok','admin.rantai-pasok.index')->name('rantai-pasok');
     Route::view('/service',    'admin.service.index')->name('service');
     Route::view('/analisis',   'admin.analisis.index')->name('analisis');
@@ -184,6 +186,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('produk/categories', [ProdukController::class, 'getCategories'])->name('produk.categories');
         Route::get('produk/units', [ProdukController::class, 'getUnits'])->name('produk.units');
         Route::get('produk/id-mappings', [ProdukController::class, 'getIdMappings'])->name('produk.id-mappings');
+        Route::post('produk/{productId}/images/set-primary', [ProdukController::class, 'setPrimaryImage'])->name('produk.set-primary-image');
+        Route::delete('produk/{productId}/images/remove', [ProdukController::class, 'removeImage'])->name('produk.remove-image');
         Route::resource('produk', ProdukController::class);
 
         // Bahan Routes
@@ -196,6 +200,18 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('bahan/outlets', [BahanController::class, 'getOutlets'])->name('bahan.outlets');
         Route::get('bahan/satuan', [BahanController::class, 'getSatuan'])->name('bahan.satuan');
         Route::resource('bahan', BahanController::class);
+
+        // Sparepart Routes
+        Route::get('sparepart', [SparepartController::class, 'index'])->name('sparepart.index');
+        Route::get('sparepart/data', [SparepartController::class, 'getData'])->name('sparepart.data');
+        Route::get('sparepart/generate-kode', [SparepartController::class, 'generateKode'])->name('sparepart.generate-kode');
+        Route::get('sparepart/search', [SparepartController::class, 'search'])->name('sparepart.search');
+        Route::post('sparepart', [SparepartController::class, 'store'])->name('sparepart.store');
+        Route::get('sparepart/{id}', [SparepartController::class, 'show'])->name('sparepart.show');
+        Route::put('sparepart/{id}', [SparepartController::class, 'update'])->name('sparepart.update');
+        Route::delete('sparepart/{id}', [SparepartController::class, 'destroy'])->name('sparepart.destroy');
+        Route::post('sparepart/{id}/adjust', [SparepartController::class, 'adjustStok'])->name('sparepart.adjust');
+        Route::get('sparepart/{id}/logs', [SparepartController::class, 'getLogs'])->name('sparepart.logs');
 
         // Inventori Routes
         Route::get('inventori/generate-kode', [InventoriController::class, 'getNewKode'])->name('inventori.generate-kode');
@@ -391,6 +407,64 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         
         // Resource Routes (diletakkan di akhir)
         Route::resource('invoice', SalesManagementController::class);
+    });
+
+    // ====== SERVICE MANAGEMENT ======
+    Route::prefix('service')->name('service.')->group(function () {
+        // Invoice Service
+        Route::get('/invoice', [ServiceController::class, 'invoiceIndex'])->name('invoice.index');
+        Route::post('/invoice', [ServiceController::class, 'storeInvoice'])->name('invoice.store');
+        Route::get('/invoice/settings', [ServiceController::class, 'getInvoiceSettings'])->name('invoice.settings.get');
+        Route::post('/invoice/settings', [ServiceController::class, 'saveInvoiceSettings'])->name('invoice.settings.save');
+        Route::get('/invoice/{id}/print', [ServiceController::class, 'printInvoice'])->name('invoice.print');
+        Route::post('/invoice/status/{id}', [ServiceController::class, 'updateStatus'])->name('invoice.status');
+        Route::delete('/invoice/{id}', [ServiceController::class, 'deleteInvoice'])->name('invoice.delete');
+        Route::post('/invoice/schedule/{id}', [ServiceController::class, 'scheduleNextService'])->name('invoice.schedule');
+        
+        // History Service
+        Route::get('/history', [ServiceController::class, 'historyIndex'])->name('history.index');
+        Route::get('/history/data', [ServiceController::class, 'getHistoryData'])->name('history.data');
+        Route::get('/history/export', [ServiceController::class, 'exportHistory'])->name('history.export');
+        Route::get('/history/export-pdf', [ServiceController::class, 'exportHistoryPdf'])->name('history.export-pdf');
+        Route::get('/status-counts', [ServiceController::class, 'getStatusCounts'])->name('status-counts');
+        Route::get('/invoice/due-soon', [ServiceController::class, 'getDueSoonInvoices'])->name('invoice.due-soon');
+        
+        // Ongkir Service
+        Route::get('/ongkir', [ServiceController::class, 'ongkirIndex'])->name('ongkir.index');
+        Route::get('/ongkir/data', [ServiceController::class, 'getOngkirData'])->name('ongkir.data');
+        Route::post('/ongkir', [ServiceController::class, 'storeOngkir'])->name('ongkir.store');
+        Route::get('/ongkir/{id}', [ServiceController::class, 'getOngkir'])->name('ongkir.show');
+        Route::put('/ongkir/{id}', [ServiceController::class, 'updateOngkir'])->name('ongkir.update');
+        Route::delete('/ongkir/{id}', [ServiceController::class, 'deleteOngkir'])->name('ongkir.delete');
+        
+        // Mesin Customer
+        Route::get('/mesin', [ServiceController::class, 'mesinIndex'])->name('mesin.index');
+        Route::get('/mesin/data', [ServiceController::class, 'getMesinData'])->name('mesin.data');
+        Route::post('/mesin', [ServiceController::class, 'storeMesin'])->name('mesin.store');
+        Route::get('/mesin/{id}', [ServiceController::class, 'getMesin'])->name('mesin.show');
+        Route::put('/mesin/{id}', [ServiceController::class, 'updateMesin'])->name('mesin.update');
+        Route::delete('/mesin/{id}', [ServiceController::class, 'deleteMesin'])->name('mesin.delete');
+        Route::get('/mesin/by-member/{id_member}', [ServiceController::class, 'getMesinByMember'])->name('mesin.by-member');
+        Route::get('/search-customers', [ServiceController::class, 'searchCustomers'])->name('search-customers');
+        Route::get('/mesin/produk/list', [ServiceController::class, 'getProdukList'])->name('mesin.produk');
+    });
+
+    // ====== PRODUKSI / PRODUCTION ======
+    Route::prefix('produksi')->name('produksi.')->group(function () {
+        // Production Routes
+        Route::get('/produksi', [ProductionController::class, 'index'])->name('produksi.index');
+        Route::get('/produksi/data', [ProductionController::class, 'getData'])->name('produksi.data');
+        Route::get('/produksi/statistics', [ProductionController::class, 'getStatistics'])->name('produksi.statistics');
+        Route::get('/produksi/products', [ProductionController::class, 'getProducts'])->name('produksi.products');
+        Route::get('/produksi/materials', [ProductionController::class, 'getMaterials'])->name('produksi.materials');
+        Route::post('/produksi', [ProductionController::class, 'store'])->name('produksi.store');
+        Route::get('/produksi/{id}', [ProductionController::class, 'show'])->name('produksi.show');
+        Route::put('/produksi/{id}', [ProductionController::class, 'update'])->name('produksi.update');
+        Route::delete('/produksi/{id}', [ProductionController::class, 'destroy'])->name('produksi.destroy');
+        Route::post('/produksi/{id}/approve', [ProductionController::class, 'approve'])->name('produksi.approve');
+        Route::post('/produksi/{id}/start', [ProductionController::class, 'start'])->name('produksi.start');
+        Route::post('/produksi/{id}/cancel', [ProductionController::class, 'cancel'])->name('produksi.cancel');
+        Route::post('/produksi/{id}/realization', [ProductionController::class, 'addRealization'])->name('produksi.realization');
     });
 
 });
@@ -595,6 +669,11 @@ Route::prefix('finance')->name('finance.')->group(function () {
     Route::get('neraca/export/pdf', [FinanceAccountantController::class, 'exportNeracaPDF'])->name('neraca.export.pdf');
     Route::get('neraca/export/xlsx', [FinanceAccountantController::class, 'exportNeracaXLSX'])->name('neraca.export.xlsx');
     
+    // Dashboard Finance
+    Route::get('/', [\App\Http\Controllers\FinanceDashboardController::class, 'index'])->name('dashboard.index');
+    Route::get('/dashboard/data', [\App\Http\Controllers\FinanceDashboardController::class, 'getData'])->name('dashboard.data');
+    Route::get('/dashboard/export-pdf', [\App\Http\Controllers\FinanceDashboardController::class, 'exportPdf'])->name('dashboard.export-pdf');
+
     // Main Page
     Route::view('/accounting', 'admin.finance.accounting.index')->name('accounting.index');
     Route::view('/biaya', 'admin.finance.biaya.index')->name('biaya.index');
@@ -1174,9 +1253,6 @@ Route::get('/kategori/data', [KategoriController::class, 'data'])->name('kategor
     Route::post('/produk/{id}/remove-rab', [ProdukController::class, 'removeRab'])->name('produk.remove_rab');
     Route::get('produk/create', [ProdukController::class, 'create'])->name('produk.create');
     Route::get('/produk/{id}/variants', [ProdukController::class, 'getVariants']);
-    // Route untuk gambar produk
-    Route::post('/produk/images/set-primary', [ProdukController::class, 'setPrimaryImage'])->name('produk.set_primary_image');
-    Route::delete('/produk/images/delete', [ProdukController::class, 'deleteImage'])->name('produk.delete_image');
     Route::get('/produk/{id}/components', [ProdukController::class, 'getComponents']);
 
     Route::get('outlet/data', [OutletController::class, 'data'])->name('outlet.data');
@@ -1419,7 +1495,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // ====== SDM / HRM ======
-    Route::prefix('admin/sdm')->name('sdm.')->group(function () {
+    Route::prefix('sdm')->name('sdm.')->group(function () {
         // Kepegawaian & Rekrutmen
         Route::prefix('kepegawaian')->name('kepegawaian.')->group(function () {
             Route::get('/', [RecruitmentManagementController::class, 'index'])->name('index');
@@ -1438,6 +1514,18 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/', [PayrollManagementController::class, 'index'])->name('index');
             Route::get('/data', [PayrollManagementController::class, 'getData'])->name('data');
             Route::get('/employees', [PayrollManagementController::class, 'getEmployees'])->name('employees');
+            Route::get('/attendance-summary', [PayrollManagementController::class, 'getAttendanceSummary'])->name('attendance.summary');
+            
+            // COA Settings - HARUS SEBELUM /{id}
+            Route::get('/coa-settings', [PayrollCoaSettingController::class, 'index'])->name('coa.index');
+            Route::get('/coa-settings/get', [PayrollCoaSettingController::class, 'getSettings'])->name('coa.settings');
+            Route::post('/coa-settings/store', [PayrollCoaSettingController::class, 'store'])->name('coa.store');
+            
+            // Export routes - SEBELUM /{id}
+            Route::get('/export/pdf', [PayrollManagementController::class, 'exportPdf'])->name('export.pdf');
+            Route::get('/export/excel', [PayrollManagementController::class, 'exportExcel'])->name('export.excel');
+            
+            // CRUD routes dengan {id} parameter - HARUS PALING AKHIR
             Route::post('/store', [PayrollManagementController::class, 'store'])->name('store');
             Route::get('/{id}', [PayrollManagementController::class, 'show'])->name('show');
             Route::put('/{id}', [PayrollManagementController::class, 'update'])->name('update');
@@ -1445,13 +1533,126 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{id}/approve', [PayrollManagementController::class, 'approve'])->name('approve');
             Route::post('/{id}/pay', [PayrollManagementController::class, 'pay'])->name('pay');
             Route::get('/{id}/slip', [PayrollManagementController::class, 'printSlip'])->name('slip');
-            Route::get('/export/pdf', [PayrollManagementController::class, 'exportPdf'])->name('export.pdf');
-            Route::get('/export/excel', [PayrollManagementController::class, 'exportExcel'])->name('export.excel');
+        });
+
+        // Attendance Management
+        Route::prefix('attendance')->name('attendance.')->group(function () {
+            Route::get('/', [AttendanceManagementController::class, 'index'])->name('index');
+            Route::get('/data', [AttendanceManagementController::class, 'getData'])->name('data');
+            Route::get('/statistics', [AttendanceManagementController::class, 'getStatistics'])->name('statistics');
+            Route::get('/employees', [AttendanceManagementController::class, 'getEmployees'])->name('employees');
             
-            // COA Settings
-            Route::get('/coa-settings', [PayrollCoaSettingController::class, 'index'])->name('coa.index');
-            Route::get('/coa-settings/get', [PayrollCoaSettingController::class, 'getSettings'])->name('coa.settings');
-            Route::post('/coa-settings/store', [PayrollCoaSettingController::class, 'store'])->name('coa.store');
+            // New routes for daily/monthly table
+            Route::get('/daily-table', [AttendanceManagementController::class, 'getDailyTable'])->name('daily.table');
+            Route::get('/monthly-table', [AttendanceManagementController::class, 'getMonthlyTable'])->name('monthly.table');
+            
+            // Work schedule routes
+            Route::get('/work-schedules', [AttendanceManagementController::class, 'getWorkSchedules'])->name('work.schedules');
+            Route::post('/set-work-hours', [AttendanceManagementController::class, 'setWorkHours'])->name('set.work.hours');
+            Route::get('/employee-schedule/{employeeId}', [AttendanceManagementController::class, 'getEmployeeSchedule'])->name('employee.schedule');
+            
+            // Export routes - SEBELUM /{id}
+            Route::get('/export/pdf', [AttendanceManagementController::class, 'exportPdf'])->name('export.pdf');
+            Route::get('/export/excel', [AttendanceManagementController::class, 'exportExcel'])->name('export.excel');
+            Route::get('/export/daily-pdf', [AttendanceManagementController::class, 'exportDailyPdf'])->name('export.daily.pdf');
+            Route::get('/export/monthly-pdf', [AttendanceManagementController::class, 'exportMonthlyPdf'])->name('export.monthly.pdf');
+            
+            // CRUD routes dengan {id} parameter - HARUS PALING AKHIR
+            Route::post('/store', [AttendanceManagementController::class, 'store'])->name('store');
+            Route::get('/{id}', [AttendanceManagementController::class, 'show'])->name('show');
+            Route::put('/{id}', [AttendanceManagementController::class, 'update'])->name('update');
+            Route::delete('/{id}', [AttendanceManagementController::class, 'destroy'])->name('destroy');
+        });
+
+        // Performance Appraisal / Manajemen Kinerja
+        Route::prefix('kinerja')->name('kinerja.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\PerformanceAppraisalController::class, 'index'])->name('index');
+            Route::get('/data', [\App\Http\Controllers\PerformanceAppraisalController::class, 'getData'])->name('data');
+            Route::get('/statistics', [\App\Http\Controllers\PerformanceAppraisalController::class, 'getStatistics'])->name('statistics');
+            Route::get('/employees', [\App\Http\Controllers\PerformanceAppraisalController::class, 'getEmployees'])->name('employees');
+            
+            // Export routes - SEBELUM /{id}
+            Route::get('/export/pdf', [\App\Http\Controllers\PerformanceAppraisalController::class, 'exportPdf'])->name('export.pdf');
+            
+            // CRUD routes dengan {id} parameter - HARUS PALING AKHIR
+            Route::post('/store', [\App\Http\Controllers\PerformanceAppraisalController::class, 'store'])->name('store');
+            Route::get('/{id}', [\App\Http\Controllers\PerformanceAppraisalController::class, 'show'])->name('show');
+            Route::put('/{id}', [\App\Http\Controllers\PerformanceAppraisalController::class, 'update'])->name('update');
+            Route::delete('/{id}', [\App\Http\Controllers\PerformanceAppraisalController::class, 'destroy'])->name('destroy');
+        });
+
+        // Manajemen Kontrak & Dokumen HR
+        Route::prefix('kontrak')->name('kontrak.')->group(function () {
+            // Dashboard
+            Route::get('/', [\App\Http\Controllers\KontrakDokumenController::class, 'index'])->name('index');
+            
+            // Kontrak Kerja
+            Route::prefix('kontrak')->name('kontrak.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\KontrakDokumenController::class, 'kontrakIndex'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\KontrakDokumenController::class, 'kontrakCreate'])->name('create');
+                Route::post('/store', [\App\Http\Controllers\KontrakDokumenController::class, 'kontrakStore'])->name('store');
+                Route::get('/{id}/edit', [\App\Http\Controllers\KontrakDokumenController::class, 'kontrakEdit'])->name('edit');
+                Route::put('/{id}', [\App\Http\Controllers\KontrakDokumenController::class, 'kontrakUpdate'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\KontrakDokumenController::class, 'kontrakDestroy'])->name('destroy');
+                Route::get('/{id}/print', [\App\Http\Controllers\KontrakDokumenController::class, 'printKontrakPdf'])->name('print');
+            });
+            
+            // Perpanjangan Kontrak
+            Route::prefix('perpanjangan')->name('perpanjangan.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\KontrakDokumenController::class, 'perpanjanganIndex'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\KontrakDokumenController::class, 'perpanjanganCreate'])->name('create');
+                Route::post('/store', [\App\Http\Controllers\KontrakDokumenController::class, 'perpanjanganStore'])->name('store');
+                Route::get('/{id}/print', [\App\Http\Controllers\KontrakDokumenController::class, 'printPerpanjanganPdf'])->name('print');
+            });
+            
+            // Surat Peringatan
+            Route::prefix('sp')->name('sp.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\KontrakDokumenController::class, 'spIndex'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\KontrakDokumenController::class, 'spCreate'])->name('create');
+                Route::post('/store', [\App\Http\Controllers\KontrakDokumenController::class, 'spStore'])->name('store');
+                Route::get('/{id}/edit', [\App\Http\Controllers\KontrakDokumenController::class, 'spEdit'])->name('edit');
+                Route::put('/{id}', [\App\Http\Controllers\KontrakDokumenController::class, 'spUpdate'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\KontrakDokumenController::class, 'spDestroy'])->name('destroy');
+                Route::get('/{id}/print', [\App\Http\Controllers\KontrakDokumenController::class, 'printSpPdf'])->name('print');
+            });
+            
+            // Dokumen HR
+            Route::prefix('dokumen')->name('dokumen.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\KontrakDokumenController::class, 'dokumenIndex'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\KontrakDokumenController::class, 'dokumenCreate'])->name('create');
+                Route::post('/store', [\App\Http\Controllers\KontrakDokumenController::class, 'dokumenStore'])->name('store');
+                Route::get('/{id}/edit', [\App\Http\Controllers\KontrakDokumenController::class, 'dokumenEdit'])->name('edit');
+                Route::get('/{id}/print', [\App\Http\Controllers\KontrakDokumenController::class, 'printDokumenPdf'])->name('print');
+                Route::put('/{id}', [\App\Http\Controllers\KontrakDokumenController::class, 'dokumenUpdate'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\KontrakDokumenController::class, 'dokumenDestroy'])->name('destroy');
+            });
+            
+            // Monitoring
+            Route::get('/monitoring', [\App\Http\Controllers\KontrakDokumenController::class, 'monitoring'])->name('monitoring');
+            
+            // Export PDF
+            Route::get('/export/kontrak-pdf', [\App\Http\Controllers\KontrakDokumenController::class, 'exportKontrakPdf'])->name('export.kontrak.pdf');
+            Route::get('/export/sp-pdf', [\App\Http\Controllers\KontrakDokumenController::class, 'exportSpPdf'])->name('export.sp.pdf');
+            Route::get('/export/monitoring-pdf', [\App\Http\Controllers\KontrakDokumenController::class, 'exportMonitoringPdf'])->name('export.monitoring.pdf');
         });
     });
-});
+
+    // ====== PRODUKSI / PRODUCTION ======
+    Route::prefix('produksi')->name('produksi.')->group(function () {
+        // Production Routes
+        Route::get('/produksi', [ProductionController::class, 'index'])->name('produksi.index');
+        Route::get('/produksi/data', [ProductionController::class, 'getData'])->name('produksi.data');
+        Route::get('/produksi/statistics', [ProductionController::class, 'getStatistics'])->name('produksi.statistics');
+        Route::get('/produksi/products', [ProductionController::class, 'getProducts'])->name('produksi.products');
+        Route::get('/produksi/materials', [ProductionController::class, 'getMaterials'])->name('produksi.materials');
+        Route::post('/produksi', [ProductionController::class, 'store'])->name('produksi.store');
+        Route::get('/produksi/{id}', [ProductionController::class, 'show'])->name('produksi.show');
+        Route::put('/produksi/{id}', [ProductionController::class, 'update'])->name('produksi.update');
+        Route::delete('/produksi/{id}', [ProductionController::class, 'destroy'])->name('produksi.destroy');
+        Route::post('/produksi/{id}/approve', [ProductionController::class, 'approve'])->name('produksi.approve');
+        Route::post('/produksi/{id}/start', [ProductionController::class, 'start'])->name('produksi.start');
+        Route::post('/produksi/{id}/cancel', [ProductionController::class, 'cancel'])->name('produksi.cancel');
+        Route::post('/produksi/{id}/realization', [ProductionController::class, 'addRealization'])->name('produksi.realization');
+    });
+    
+}); // End of admin group

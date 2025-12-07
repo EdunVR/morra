@@ -12,9 +12,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('recruitments', function (Blueprint $table) {
-            $table->unsignedBigInteger('outlet_id')->nullable()->after('id');
-            $table->foreign('outlet_id')->references('id_outlet')->on('outlets')->onDelete('set null');
+            // Only add column if it doesn't exist
+            if (!Schema::hasColumn('recruitments', 'outlet_id')) {
+                $table->unsignedBigInteger('outlet_id')->nullable()->after('id');
+            }
         });
+        
+        // Only add foreign key if outlets table exists
+        if (Schema::hasTable('outlets')) {
+            Schema::table('recruitments', function (Blueprint $table) {
+                $table->foreign('outlet_id')->references('id_outlet')->on('outlets')->onDelete('set null');
+            });
+        }
     }
 
     /**

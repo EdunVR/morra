@@ -19,6 +19,7 @@
                 ['Satuan', route('admin.inventaris.satuan.index'), ['inventaris.satuan.view']],
                 ['Produk', route('admin.inventaris.produk.index'), ['inventaris.produk.view']],
                 ['Bahan', route('admin.inventaris.bahan.index'), ['inventaris.bahan.view']],
+                ['Sparepart', route('admin.inventaris.sparepart.index'), []],
                 ['Inventori', route('admin.inventaris.inventori.index'), ['inventaris.inventori.view']],
                 ['Transfer Gudang', route('admin.inventaris.transfer-gudang.index'), ['inventaris.transfer-gudang.view']],
             ]
@@ -36,6 +37,7 @@
         'Keuangan (F&A)' => [
             'module' => 'finance',
             'items' => [
+                ['Dashboard Finance', route('finance.dashboard.index'), ['finance.dashboard.view']],
                 ['Manajemen RAB', route('admin.finance.rab.index'), ['finance.rab.view']],
                 ['Biaya', route('finance.biaya.index'), ['finance.biaya.view']],
                 ['Hutang', route('finance.hutang.index'), ['finance.hutang.view']],
@@ -76,7 +78,7 @@
         'Produksi (MRP)' => [
             'module' => 'production',
             'items' => [
-                ['Data Produksi', route('admin.produksi.produksi.index'), ['production.work-order.view']],
+                ['Data Produksi', route('admin.produksi.produksi.index'), []],
             ]
         ],
 
@@ -92,19 +94,20 @@
             'items' => [
                 ['Kepegawaian & Rekrutmen', route('sdm.kepegawaian.index'), ['hrm.karyawan.view']],
                 ['Penggajian / Payroll', route('sdm.payroll.index'), ['hrm.payroll.view']],
-                ['Manajemen Kinerja', '#', ['hrm.karyawan.view']],
+                ['Manajemen Absensi', route('sdm.attendance.index'), ['hrm.absensi.view']],
+                ['Manajemen Kinerja', route('sdm.kinerja.index'), ['hrm.karyawan.view']],
+                ['Kontrak & Dokumen HR', route('sdm.kontrak.index'), ['hrm.karyawan.view']],
                 ['Pelatihan & Pengembangan', '#', ['hrm.karyawan.view']],
-                ['Manajemen Absensi & Waktu Kerja', '#', ['hrm.absensi.view']],
             ]
         ],
 
-        'Service' => [
+        'Service Management' => [
             'module' => 'service',
             'items' => [
-                ['Invoice Service', '#', ['service.invoice.view']],
-                ['Histori Service', '#', ['service.invoice.view']],
-                ['Ongkir Service', '#', ['service.invoice.view']],
-                ['Mesin Service', '#', ['service.invoice.view']],
+                ['Invoice Service', route('admin.service.invoice.index'), ['service.invoice.view']],
+                ['History Service', route('admin.service.history.index'), ['service.history.view']],
+                ['Ongkir Service', route('admin.service.ongkir.index'), ['service.ongkir.view']],
+                ['Mesin Customer', route('admin.service.mesin.index'), ['service.mesin.view']],
             ]
         ],
 
@@ -114,14 +117,6 @@
                 ['Profil Investor', route('admin.investor.profil.index'), ['investor.profil.view']],
                 ['Bagi Hasil', '#', ['investor.bagi-hasil.view']],
                 ['List Pencairan', '#', ['investor.pencairan.view']],
-            ]
-        ],
-
-        'Analisis & Pelaporan' => [
-            'module' => 'analytics',
-            'items' => [
-                ['Laporan Umum', '#', ['analytics.laporan.view']],
-                ['Laporan Penjualan', '#', ['sales.invoice.view']],
             ]
         ],
 
@@ -165,13 +160,12 @@
         ['name'=>'Pelanggan (CRM)','route'=>'admin.crm.index','icon'=>'users','module'=>'crm'],
         ['name'=>'Penjualan (S&M)','route'=>'admin.penjualan.dashboard.index','icon'=>'receipt-text','module'=>'sales'],
         ['name'=>'Pembelian (PM)','route'=>'pembelian.purchase-order.index','icon'=>'truck','module'=>'procurement'],
-        ['name'=>'Produksi (MRP)','route'=>'admin.produksi','icon'=>'factory','module'=>'production'],
+        ['name'=>'Produksi (MRP)','route'=>'admin.produksi.produksi.index','icon'=>'factory','module'=>'production'],
         ['name'=>'Rantai Pasok (SCM)','route'=>'admin.rantai-pasok','icon'=>'git-branch','module'=>'inventaris'],
-        ['name'=>'Keuangan (F&A)','route'=>'finance.accounting.index','icon'=>'wallet','module'=>'finance'],
+        ['name'=>'Keuangan (F&A)','route'=>'finance.dashboard.index','icon'=>'wallet','module'=>'finance'],
         ['name'=>'SDM','route'=>'admin.sdm','icon'=>'id-card','module'=>'hrm'],
-        ['name'=>'Service','route'=>'admin.service','icon'=>'wrench','module'=>'service'],
+        ['name'=>'Service Management','route'=>'admin.service','icon'=>'wrench','module'=>'service'],
         ['name'=>'Investor','route'=>'admin.investor','icon'=>'hand-coins','module'=>'investor'],
-        ['name'=>'Analisis & Pelaporan','route'=>'admin.analisis','icon'=>'line-chart','module'=>'analytics'],
         ['name'=>'Sistem','route'=>'admin.sistem','icon'=>'settings','module'=>'sistem'],
     ];
 
@@ -270,7 +264,7 @@
 
 </aside>
 
-<!-- Modal DEMO -->
+<!-- Modal DEMO
 <div 
     x-data
     x-show="$store.demoModal.open"
@@ -299,7 +293,7 @@
             </a>
         </div>
     </div>
-</div>
+</div> -->
 
 <script>
         document.addEventListener('alpine:init', () => {

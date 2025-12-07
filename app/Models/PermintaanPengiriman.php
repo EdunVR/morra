@@ -10,8 +10,10 @@ class PermintaanPengiriman extends Model
     use HasFactory;
 
     protected $table = 'permintaan_pengiriman';
-    protected $primaryKey = 'id_permintaan';
+    protected $primaryKey = 'id';
     protected $fillable = [
+        'no_permintaan',
+        'tanggal',
         'id_outlet_asal',
         'id_outlet_tujuan',
         'id_produk',
@@ -20,6 +22,44 @@ class PermintaanPengiriman extends Model
         'jumlah',
         'status',
     ];
+
+    protected $casts = [
+        'tanggal' => 'date',
+    ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->no_permintaan)) {
+                $model->no_permintaan = self::generateNoPermintaan();
+            }
+            if (empty($model->tanggal)) {
+                $model->tanggal = now()->format('Y-m-d');
+            }
+        });
+    }
+
+    public static function generateNoPermintaan()
+    {
+        $prefix = 'TRF';
+        $date = date('Ymd');
+        
+        // Get last number for today
+        $lastPermintaan = self::where('no_permintaan', 'like', $prefix . $date . '%')
+            ->orderBy('no_permintaan', 'desc')
+            ->first();
+        
+        if ($lastPermintaan) {
+            $lastNumber = (int) substr($lastPermintaan->no_permintaan, -4);
+            $newNumber = $lastNumber + 1;
+        } else {
+            $newNumber = 1;
+        }
+        
+        return $prefix . $date . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+    }
 
     public function outletAsal()
     {

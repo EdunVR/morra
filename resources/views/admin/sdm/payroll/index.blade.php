@@ -301,6 +301,11 @@
             // Set default period to current month
             $('#period').val('{{ date("Y-m") }}');
             $('#payment_date').val('{{ date("Y-m-d") }}');
+            
+            // Add event listener for period change in modal
+            $('#period').on('change', function() {
+                loadAttendanceData();
+            });
         });
 
         function debounce(func, wait) {
@@ -366,7 +371,57 @@
             const selected = $('#recruitment_id option:selected');
             const salary = selected.data('salary') || 0;
             $('#basic_salary').val(salary);
+            
+            // Load attendance data if employee and period are selected
+            loadAttendanceData();
+            
             calculateSalary();
+        }
+
+        function loadAttendanceData() {
+            const employeeId = $('#recruitment_id').val();
+            const period = $('#period').val();
+            
+            if (!employeeId || !period) {
+                return;
+            }
+
+            // Show loading indicator
+            $('#overtime_hours, #absent_days, #late_days').prop('disabled', true).val('Loading...');
+
+            $.ajax({
+                url: '{{ route("sdm.payroll.attendance.summary") }}',
+                method: 'GET',
+                data: {
+                    employee_id: employeeId,
+                    period: period
+                },
+                success: function(response) {
+                    if (response.success) {
+                        const data = response.data;
+                        
+                        // Auto-fill attendance data
+                        $('#working_days').val(data.working_days);
+                        $('#present_days').val(data.total_present);
+                        $('#overtime_hours').val(data.overtime_hours);
+                        $('#absent_days').val(data.total_absent);
+                        $('#late_days').val(data.late_days);
+                        
+                        // Show info message
+                        showToast('Data absensi berhasil dimuat', 'success');
+                        
+                        calculateSalary();
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Error loading attendance data:', xhr);
+                    showToast('Gagal memuat data absensi', 'error');
+                },
+                complete: function() {
+                    // Re-enable fields
+                    $('#overtime_hours, #absent_days, #late_days').prop('disabled', false);
+                }
+            });
         }
 
         function calculateSalary() {
@@ -471,12 +526,12 @@
             const draft = payrolls.filter(p => p.status === 'draft').length;
             const approved = payrolls.filter(p => p.status === 'approved').length;
             const paid = payrolls.filter(p => p.status === 'paid').length;
-            const total = payrolls.reduce((sum, p) => sum + p.net_salary, 0);
+            const total = payrolls.reduce((sum, p) => sum + parseFloat(p.net_salary || 0), 0);
 
             $('#draftCount').text(draft);
             $('#approvedCount').text(approved);
             $('#paidCount').text(paid);
-            $('#totalPayroll').text('Rp ' + total.toLocaleString('id-ID'));
+            $('#totalPayroll').text('Rp ' + Math.round(total).toLocaleString('id-ID'));
         }
 
         function openAddModal() {

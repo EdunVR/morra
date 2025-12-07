@@ -29,7 +29,7 @@ class ProdukController extends Controller
     {
         $this->middleware('permission:inventaris.produk.view')->only(['index', 'data', 'show', 'getCategories', 'getUnits', 'getIdMappings', 'getOutlets']);
         $this->middleware('permission:inventaris.produk.create')->only(['store', 'getNewSku']);
-        $this->middleware('permission:inventaris.produk.edit')->only(['update', 'edit']);
+        $this->middleware('permission:inventaris.produk.edit')->only(['update', 'edit', 'removeImage', 'setPrimaryImage']);
         $this->middleware('permission:inventaris.produk.delete')->only(['destroy']);
         $this->middleware('permission:inventaris.produk.export')->only(['exportPdf', 'exportExcel', 'downloadTemplate']);
         $this->middleware('permission:inventaris.produk.import')->only(['importExcel']);
@@ -394,6 +394,15 @@ class ProdukController extends Controller
             return response()->json(['error' => 'Produk tidak ditemukan'], 404);
         }
 
+        // Find primary image index
+        $primaryImageIndex = 0;
+        foreach ($produk->images as $index => $image) {
+            if ($image->is_primary) {
+                $primaryImageIndex = $index;
+                break;
+            }
+        }
+
         return response()->json([
             'id' => $produk->id_produk,
             'outlet' => $produk->outlet ? $produk->outlet->nama_outlet : '',
@@ -409,8 +418,13 @@ class ProdukController extends Controller
             'desc' => $produk->spesifikasi,
             'is_active' => $produk->is_active,
             'images' => $produk->images->map(function($image) {
-                return asset('storage/'.$image->path);
+                return [
+                    'id' => $image->id_image,
+                    'url' => asset('storage/'.$image->path),
+                    'is_primary' => $image->is_primary
+                ];
             })->toArray(),
+            'primaryImageIndex' => $primaryImageIndex,
             'variants' => $produk->variants->map(function($variant) {
                 return [
                     'id' => $variant->id,
@@ -1025,29 +1039,7 @@ class ProdukController extends Controller
         return $pdf->stream('produk.pdf');
     }
 
-    public function deleteImage($id)
-    {
-        $image = ProductImage::findOrFail($id);
-        Storage::disk('public')->delete($image->path);
-        $image->delete();
-        
-        return response()->json(['message' => 'Gambar berhasil dihapus'], 200);
-    }
 
-    // Tambahkan method untuk set primary image
-    public function setPrimaryImage($id)
-    {
-        $image = ProductImage::findOrFail($id);
-        
-        // Reset semua primary image untuk produk ini
-        ProductImage::where('id_produk', $image->id_produk)
-            ->update(['is_primary' => false]);
-            
-        // Set image ini sebagai primary
-        $image->update(['is_primary' => true]);
-        
-        return response()->json(['message' => 'Gambar utama berhasil diubah'], 200);
-    }
 
     public function getImages($id)
     {
@@ -1298,6 +1290,97 @@ class ProdukController extends Controller
                 'categories' => [],
                 'units' => []
             ], 500);
+        }
+    }
+
+    /**
+     * Remove image from product
+     */
+    public function removeImage(Request $request, $productId)
+    {
+        Log::info('removeImage called', [
+            'productId' => $productId,
+            'image_id' => $request->input('image_id'),
+            'all_input' => $request->all()
+        ]);
+
+        try {
+            $imageId = $request->input('image_id');
+            
+            if (!$imageId) {
+                Log::error('No image_id provided');
+                return response()->json(['error' => 'Image ID tidak ditemukan'], 400);
+            }
+
+            $image = ProductImage::where('id_image', $imageId)
+                ->where('id_produk', $productId)
+                ->first();
+
+            if (!$image) {
+                Log::error('Image not found', ['image_id' => $imageId, 'product_id' => $productId]);
+                return response()->json(['error' => 'Gambar tidak ditemukan'], 404);
+            }
+
+            // Delete file from storage
+            if (Storage::disk('public')->exists($image->path)) {
+                Storage::disk('public')->delete($image->path);
+            }
+
+            // Delete from database
+            $image->delete();
+
+            Log::info('Image removed successfully', ['image_id' => $imageId]);
+            return response()->json(['message' => 'Gambar berhasil dihapus'], 200);
+        } catch (\Exception $e) {
+            Log::error('Error removing image: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'Gagal menghapus gambar: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Set primary image for product
+     */
+    public function setPrimaryImage(Request $request, $productId)
+    {
+        Log::info('setPrimaryImage called', [
+            'productId' => $productId,
+            'image_id' => $request->input('image_id'),
+            'all_input' => $request->all()
+        ]);
+
+        try {
+            $imageId = $request->input('image_id');
+            
+            if (!$imageId) {
+                Log::error('No image_id provided');
+                return response()->json(['error' => 'Image ID tidak ditemukan'], 400);
+            }
+
+            // Reset all images to non-primary
+            ProductImage::where('id_produk', $productId)
+                ->update(['is_primary' => false]);
+
+            // Set selected image as primary
+            $image = ProductImage::where('id_image', $imageId)
+                ->where('id_produk', $productId)
+                ->first();
+
+            if (!$image) {
+                Log::error('Image not found', ['image_id' => $imageId, 'product_id' => $productId]);
+                return response()->json(['error' => 'Gambar tidak ditemukan'], 404);
+            }
+
+            $image->update(['is_primary' => true]);
+
+            Log::info('Primary image set successfully', ['image_id' => $imageId]);
+            return response()->json(['message' => 'Gambar cover berhasil diatur'], 200);
+        } catch (\Exception $e) {
+            Log::error('Error setting primary image: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'Gagal mengatur gambar cover: ' . $e->getMessage()], 500);
         }
     }
 }

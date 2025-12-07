@@ -10,7 +10,7 @@ class InvoiceServiceCounter extends Model
     use HasFactory;
 
     protected $table = 'invoice_service_counter';
-    protected $fillable = ['last_number', 'year'];
+    protected $fillable = ['last_number', 'year', 'prefix', 'month'];
 
     // Helper method untuk mendapatkan nomor romawi
     public static function getRomanMonth($month = null)
@@ -33,6 +33,16 @@ class InvoiceServiceCounter extends Model
         $counter = self::first();
         $currentYear = date('Y');
         
+        // Jika counter belum ada, buat baru
+        if (!$counter) {
+            $counter = self::create([
+                'last_number' => 0,
+                'year' => $currentYear,
+                'month' => date('n'),
+                'prefix' => 'BBN.INV'
+            ]);
+        }
+        
         // Jika tahun berubah, reset counter
         if ($counter->year != $currentYear) {
             $counter->update([
@@ -47,8 +57,9 @@ class InvoiceServiceCounter extends Model
         $number = str_pad($counter->last_number, 3, '0', STR_PAD_LEFT);
         $romanMonth = self::getRomanMonth();
         $year = $currentYear;
+        $prefix = $counter->prefix ?? 'BBN.INV';
 
-        return "{$number}/BBN.INV/{$romanMonth}/{$year}";
+        return "{$number}/{$prefix}/{$romanMonth}/{$year}";
     }
 
     // Method untuk set manual starting number

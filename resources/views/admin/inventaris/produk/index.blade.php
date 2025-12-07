@@ -157,7 +157,9 @@
             <template x-for="p in products" :key="p.id">
               <tr class="border-t border-slate-100">
                 <td class="px-4 py-3" x-text="p.outlet"></td>
-                <td class="px-4 py-3" x-html="p.image"></td>
+                <td class="px-4 py-3">
+                  <img :src="imgSrc(p)" x-on:error="$event.target.src = placeholder" class="w-12 h-12 object-contain bg-slate-50 rounded-lg" alt="">
+                </td>
                 <td class="px-4 py-3 font-mono text-slate-600" x-text="p.sku"></td>
                 <td class="px-4 py-3 font-medium" x-text="p.name"></td>
                 <td class="px-4 py-3" x-text="p.type"></td>
@@ -322,26 +324,64 @@
 
           <!-- STEP 2 - Gambar -->
           <div x-show="currentStep === 1" class="space-y-4">
-            <div class="text-sm text-slate-600">Unggah sampai 4 gambar (JPG/PNG).</div>
+            <div class="text-sm text-slate-600">Unggah sampai 4 gambar (JPG/PNG). Klik bintang untuk set gambar cover.</div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
               <template x-for="i in 4" :key="i">
-                <label class="group block aspect-square rounded-xl border border-dashed border-slate-300 hover:border-primary-400 cursor-pointer overflow-hidden bg-slate-50">
-                  <input type="file" class="hidden" accept="image/*" x-on:change="onPickImage($event, i-1)">
-                  <template x-if="form.images[i-1]">
-                    <img :src="form.images[i-1]" class="w-full h-full object-cover" />
-                  </template>
-                  <template x-if="!form.images[i-1]">
-                    <div class="w-full h-full flex items-center justify-center text-slate-400 group-hover:text-primary-500">
-                      <div class="text-center">
-                        <i class='bx bx-image-alt text-3xl'></i>
-                        <div class="text-xs mt-1">Klik untuk pilih</div>
+                <div class="relative group">
+                  <!-- Image Container -->
+                  <label class="block aspect-square rounded-xl border border-dashed border-slate-300 hover:border-primary-400 cursor-pointer overflow-hidden bg-slate-50"
+                         :class="form.images[i-1] ? 'border-solid' : ''">
+                    <input type="file" class="hidden" accept="image/*" x-on:change="onPickImage($event, i-1)">
+                    <template x-if="form.images[i-1]">
+                      <img :src="typeof form.images[i-1] === 'string' ? form.images[i-1] : (form.images[i-1].url || form.images[i-1])" 
+                           class="w-full h-full object-cover" 
+                           x-on:error="console.error('Image load error:', form.images[i-1])"
+                           x-on:load="console.log('Image loaded:', form.images[i-1])" />
+                    </template>
+                    <template x-if="!form.images[i-1]">
+                      <div class="w-full h-full flex items-center justify-center text-slate-400 group-hover:text-primary-500">
+                        <div class="text-center">
+                          <i class='bx bx-image-alt text-3xl'></i>
+                          <div class="text-xs mt-1">Klik untuk pilih</div>
+                        </div>
                       </div>
+                    </template>
+                  </label>
+                  
+                  <!-- Action Buttons (only show when image exists) -->
+                  <template x-if="form.images[i-1]">
+                    <div class="absolute top-2 right-2 flex gap-1">
+                      <!-- Set as Primary/Cover -->
+                      <button type="button"
+                              x-on:click.stop="setPrimaryImage(i-1)"
+                              :class="form.primaryImageIndex === (i-1) ? 'bg-yellow-500 text-white' : 'bg-white/90 text-slate-600 hover:bg-yellow-500 hover:text-white'"
+                              class="w-8 h-8 rounded-lg shadow-lg flex items-center justify-center transition"
+                              :title="form.primaryImageIndex === (i-1) ? 'Gambar Cover' : 'Set sebagai Cover'">
+                        <i class='bx bxs-star text-lg'></i>
+                      </button>
+                      
+                      <!-- Delete Image -->
+                      <button type="button"
+                              x-on:click.stop="removeImage(i-1)"
+                              class="w-8 h-8 rounded-lg bg-red-500 text-white shadow-lg hover:bg-red-600 flex items-center justify-center transition"
+                              title="Hapus Gambar">
+                        <i class='bx bx-trash text-lg'></i>
+                      </button>
                     </div>
                   </template>
-                </label>
+                  
+                  <!-- Primary Badge -->
+                  <template x-if="form.images[i-1] && form.primaryImageIndex === (i-1)">
+                    <div class="absolute bottom-2 left-2 px-2 py-1 rounded-lg bg-yellow-500 text-white text-xs font-medium shadow-lg">
+                      <i class='bx bxs-star'></i> Cover
+                    </div>
+                  </template>
+                </div>
               </template>
             </div>
-            <div class="text-xs text-slate-500">Gunakan gambar ukuran sedang agar performa tetap cepat.</div>
+            <div class="text-xs text-slate-500">
+              <i class='bx bx-info-circle'></i> Gambar pertama atau yang diberi bintang akan menjadi gambar cover produk.
+            </div>
           </div>
 
           <!-- STEP 3 - Varian -->
@@ -388,12 +428,27 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div class="rounded-xl border border-slate-200 bg-white">
                 <div class="aspect-square bg-slate-50 rounded-t-xl overflow-hidden flex items-center justify-center">
-                  <img :src="form.images[0] || placeholder" class="w-3/4 h-3/4 object-contain">
+                  <!-- Display primary/cover image -->
+                  <template x-if="form.images[form.primaryImageIndex || 0]">
+                    <img :src="typeof form.images[form.primaryImageIndex || 0] === 'string' ? form.images[form.primaryImageIndex || 0] : (form.images[form.primaryImageIndex || 0].url || form.images[form.primaryImageIndex || 0])" 
+                         class="w-full h-full object-cover"
+                         x-on:error="console.error('Cover image load error')">
+                  </template>
+                  <template x-if="!form.images[form.primaryImageIndex || 0]">
+                    <div class="text-slate-300">
+                      <i class='bx bx-image-alt text-6xl'></i>
+                      <div class="text-xs mt-2">Tidak ada gambar</div>
+                    </div>
+                  </template>
                 </div>
                 <div class="p-3">
                   <div class="font-semibold" x-text="form.name || '—'"></div>
                   <div class="text-sm text-slate-500" x-text="(form.type || '—') + ' • ' + (form.category || '—')"></div>
                   <div class="mt-1 text-primary-700 font-semibold" x-text="formatCurrency(form.price || 0)"></div>
+                  <!-- Show cover badge if has images -->
+                  <div x-show="form.images.length > 0" class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-100 text-yellow-700 text-xs">
+                    <i class='bx bxs-star'></i> Gambar Cover
+                  </div>
                 </div>
               </div>
               <div class="md:col-span-2 rounded-xl border border-slate-200 p-4">
@@ -547,6 +602,8 @@
           desc: '',
           is_active: true,
           images: [],
+          imageFiles: [],
+          primaryImageIndex: 0,
           hasVariant: false,
           variants: []
         },
@@ -561,6 +618,21 @@
         toastType: 'success',
 
         placeholder: 'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="100%" height="100%" fill="#f1f5f9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#94a3b8" font-family="Arial" font-size="28">No Image</text></svg>`),
+
+        // Getter for cover image URL
+        get coverImageUrl() {
+          const primaryIndex = this.form.primaryImageIndex || 0;
+          const image = this.form.images[primaryIndex];
+          
+          if (!image) return this.placeholder;
+          
+          // Handle both string and object format
+          if (typeof image === 'string') {
+            return image;
+          } else {
+            return image.url || image;
+          }
+        },
 
         async init(){
           // Parallel loading semua data termasuk ID mappings
@@ -691,6 +763,7 @@
                     is_active: true,
                     images: [],
                     imageFiles: [],
+                    primaryImageIndex: 0,
                     hasVariant: false,
                     variants: []
                 }; 
@@ -707,11 +780,70 @@
 
         async openEdit(p){ 
           try {
-            const response = await fetch(`{{ route('admin.inventaris.produk.show', '') }}/${p.id}`);
+            // Extract product ID safely
+            const productId = typeof p.id === 'object' ? p.id.id : p.id;
+            
+            console.log('openEdit - fetching product:', productId);
+            
+            // Retry mechanism for session failures
+            let response;
+            let retryCount = 0;
+            const maxRetries = 2;
+            
+            while (retryCount <= maxRetries) {
+              try {
+                response = await fetch(`{{ route('admin.inventaris.produk.show', '') }}/${productId}`);
+                
+                if (response.ok) {
+                  break; // Success, exit retry loop
+                }
+                
+                // If 401/403/500, retry
+                if ([401, 403, 500].includes(response.status) && retryCount < maxRetries) {
+                  console.warn(`Retry ${retryCount + 1}/${maxRetries} due to status ${response.status}`);
+                  retryCount++;
+                  await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+                  continue;
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}`);
+              } catch (fetchError) {
+                if (retryCount < maxRetries) {
+                  console.warn(`Retry ${retryCount + 1}/${maxRetries} due to error:`, fetchError);
+                  retryCount++;
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  continue;
+                }
+                throw fetchError;
+              }
+            }
+            
             const data = await response.json();
             
+            console.log('openEdit - received data:', data);
+            
+            // Transform images to match expected format
+            const images = (data.images || []).map(img => {
+              if (typeof img === 'string') {
+                // Old format: just URL string
+                return img;
+              } else {
+                // New format: object with id, url, is_primary
+                return {
+                  id: img.id,
+                  url: img.url,
+                  is_primary: img.is_primary
+                };
+              }
+            });
+            
+            // Ensure id is a number, not an object
+            const finalProductId = typeof data.id === 'object' ? data.id.id : data.id;
+            
+            console.log('openEdit - processed images:', images);
+            
             this.form = { 
-              id: data.id,
+              id: parseInt(finalProductId),
               outlet: data.outlet,
               type: data.type,
               sku: data.sku,
@@ -724,14 +856,17 @@
               brand: data.brand,
               desc: data.desc,
               is_active: data.is_active,
-              images: data.images || [],
+              images: images,
               imageFiles: [],
+              primaryImageIndex: data.primaryImageIndex || 0,
               hasVariant: data.variants && data.variants.length > 0,
               variants: data.variants || []
             }; 
+            
+            console.log('openEdit - form set:', this.form);
           } catch (error) {
             console.error('Error fetching product details:', error);
-            this.showToastMessage('Gagal memuat data produk', 'error');
+            this.showToastMessage('Gagal memuat data produk: ' + error.message, 'error');
             return;
           }
           
@@ -1065,6 +1200,108 @@
             reader.onerror = reject;
             reader.readAsDataURL(file);
           });
+        },
+
+        async removeImage(index) {
+          if (!confirm('Hapus gambar ini?')) return;
+          
+          try {
+            // If editing existing product and image has ID, delete from server
+            if (this.form.id && this.form.images[index] && this.form.images[index].id) {
+              const imageId = this.form.images[index].id;
+              const productId = typeof this.form.id === 'object' ? this.form.id.id : this.form.id;
+              
+              console.log('removeImage debug:', {
+                formId: this.form.id,
+                productId: productId,
+                imageId: imageId,
+                index: index
+              });
+              
+              // Use route helper to generate correct URL
+              const url = '{{ route("admin.inventaris.produk.remove-image", ":productId") }}'.replace(':productId', productId);
+              console.log('Fetching URL:', url);
+              
+              const response = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                  'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                body: JSON.stringify({ image_id: imageId })
+              });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error('Gagal menghapus gambar dari server');
+              }
+            }
+            
+            // Remove image from array
+            this.form.images.splice(index, 1);
+            if (this.form.imageFiles && this.form.imageFiles[index]) {
+              this.form.imageFiles.splice(index, 1);
+            }
+            
+            // Adjust primary index if needed
+            if (this.form.primaryImageIndex === index) {
+              // If we deleted the primary image, set first image as primary
+              this.form.primaryImageIndex = this.form.images.length > 0 ? 0 : null;
+            } else if (this.form.primaryImageIndex > index) {
+              // Adjust index if primary was after deleted image
+              this.form.primaryImageIndex--;
+            }
+            
+            this.showToastMessage('Gambar berhasil dihapus', 'success');
+          } catch (error) {
+            console.error('Error removing image:', error);
+            this.showToastMessage('Gagal menghapus gambar: ' + error.message, 'error');
+          }
+        },
+
+        async setPrimaryImage(index) {
+          try {
+            // If editing existing product and image has ID, update on server
+            if (this.form.id && this.form.images[index] && this.form.images[index].id) {
+              const imageId = this.form.images[index].id;
+              const productId = typeof this.form.id === 'object' ? this.form.id.id : this.form.id;
+              
+              console.log('setPrimaryImage debug:', {
+                formId: this.form.id,
+                productId: productId,
+                imageId: imageId,
+                index: index
+              });
+              
+              // Use route helper to generate correct URL
+              const url = '{{ route("admin.inventaris.produk.set-primary-image", ":productId") }}'.replace(':productId', productId);
+              console.log('Fetching URL:', url);
+              
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                  'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                body: JSON.stringify({ image_id: imageId })
+              });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error('Gagal mengatur gambar cover di server');
+              }
+            }
+            
+            this.form.primaryImageIndex = index;
+            this.showToastMessage('Gambar cover berhasil diset', 'success');
+          } catch (error) {
+            console.error('Error setting primary image:', error);
+            this.showToastMessage('Gagal mengatur gambar cover: ' + error.message, 'error');
+          }
         },
 
         addVariant(){ 

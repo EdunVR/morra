@@ -39,7 +39,7 @@ class BahanController extends Controller
     {   
         Log::info('Fetching Bahan Data with filters', $request->all());
         
-        $query = Bahan::with(['outlet', 'satuan'])
+        $query = Bahan::with(['outlet', 'satuan', 'hargaBahan'])
             ->withSum('hargaBahan', 'stok');
 
         // Apply outlet filter using trait
@@ -105,6 +105,16 @@ class BahanController extends Controller
             })
             ->addColumn('is_active', function ($bahan) {
                 return $bahan->is_active ? 'ACTIVE' : 'INACTIVE';
+            })
+            ->addColumn('harga_bahan', function ($bahan) {
+                return $bahan->hargaBahan->map(function($detail) {
+                    return [
+                        'id' => $detail->id,
+                        'harga_beli' => $detail->harga_beli,
+                        'stok' => $detail->stok,
+                        'created_at' => $detail->created_at,
+                    ];
+                });
             })
             ->addColumn('aksi', function ($bahan) {
                 return '
@@ -193,7 +203,7 @@ class BahanController extends Controller
 
     public function edit($id)
     {
-        $bahan = Bahan::with(['outlet', 'satuan'])->find($id);
+        $bahan = Bahan::with(['outlet', 'satuan', 'hargaBahan'])->find($id);
 
         if (!$bahan) {
             return response()->json(['message' => 'Data tidak ditemukan'], 404);
@@ -209,7 +219,15 @@ class BahanController extends Controller
             'stock' => $bahan->harga_bahan_sum_stok ?? 0,
             'unit' => $bahan->id_satuan,
             'note' => $bahan->catatan,
-            'is_active' => $bahan->is_active
+            'is_active' => $bahan->is_active,
+            'harga_bahan' => $bahan->hargaBahan->map(function($detail) {
+                return [
+                    'id' => $detail->id,
+                    'harga_beli' => $detail->harga_beli,
+                    'stok' => $detail->stok,
+                    'created_at' => $detail->created_at,
+                ];
+            })
         ]);
     }
 

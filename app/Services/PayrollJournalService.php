@@ -34,14 +34,24 @@ class PayrollJournalService
 
             DB::beginTransaction();
 
+            // Get default book (Buku Umum)
+            $book = \App\Models\AccountingBook::where('code', 'BU')->first();
+            if (!$book) {
+                $book = \App\Models\AccountingBook::first();
+            }
+
             // Create journal entry header
             $journal = JournalEntry::create([
+                'book_id' => $book ? $book->id : null,
                 'outlet_id' => $payroll->outlet_id,
-                'date' => $payroll->payment_date,
+                'transaction_number' => JournalEntry::generateTransactionNumber($book ? $book->id : 1),
+                'transaction_date' => $payroll->payment_date,
                 'reference_type' => 'payroll_approval',
-                'reference_id' => $payroll->id,
+                'reference_number' => 'PAYROLL-' . str_pad($payroll->id, 6, '0', STR_PAD_LEFT),
                 'description' => "Approval Payroll - {$payroll->employee->name} - " . date('F Y', strtotime($payroll->period . '-01')),
-                'created_by' => auth()->id(),
+                'status' => 'posted',
+                'total_debit' => 0,
+                'total_credit' => 0,
             ]);
 
             $details = [];
@@ -112,9 +122,14 @@ class PayrollJournalService
                 ];
             }
 
-            // CREDIT: Hutang Gaji (net salary - tax)
+            // CREDIT: Hutang Gaji
+            // Hutang gaji = Gaji Bersih + Pajak (karena pajak akan dibayar terpisah ke pemerintah)
+            // Atau bisa juga: Hutang gaji = Net Salary (yang akan dibayarkan ke karyawan)
             if ($coaSetting->salary_payable_account_id) {
-                $netPayable = $payroll->net_salary; // Sudah dikurangi semua potongan termasuk pajak
+                // Net salary adalah yang akan dibayarkan ke karyawan
+                // Sudah dikurangi semua potongan termasuk pajak, denda, dll
+                $netPayable = $payroll->net_salary;
+                
                 $details[] = [
                     'journal_entry_id' => $journal->id,
                     'account_id' => $coaSetting->salary_payable_account_id,
@@ -185,14 +200,24 @@ class PayrollJournalService
 
             DB::beginTransaction();
 
+            // Get default book (Buku Umum)
+            $book = \App\Models\AccountingBook::where('code', 'BU')->first();
+            if (!$book) {
+                $book = \App\Models\AccountingBook::first();
+            }
+
             // Create journal entry header
             $journal = JournalEntry::create([
+                'book_id' => $book ? $book->id : null,
                 'outlet_id' => $payroll->outlet_id,
-                'date' => now(),
+                'transaction_number' => JournalEntry::generateTransactionNumber($book ? $book->id : 1),
+                'transaction_date' => now(),
                 'reference_type' => 'payroll_payment',
-                'reference_id' => $payroll->id,
+                'reference_number' => 'PAYROLL-PAY-' . str_pad($payroll->id, 6, '0', STR_PAD_LEFT),
                 'description' => "Pembayaran Gaji - {$payroll->employee->name} - " . date('F Y', strtotime($payroll->period . '-01')),
-                'created_by' => auth()->id(),
+                'status' => 'posted',
+                'total_debit' => 0,
+                'total_credit' => 0,
             ]);
 
             // DEBIT: Hutang Gaji
@@ -248,8 +273,13 @@ class PayrollJournalService
             DB::beginTransaction();
 
             // Find all journals related to this payroll
+            $referenceNumbers = [
+                'PAYROLL-' . str_pad($payroll->id, 6, '0', STR_PAD_LEFT),
+                'PAYROLL-PAY-' . str_pad($payroll->id, 6, '0', STR_PAD_LEFT)
+            ];
+            
             $journals = JournalEntry::where('reference_type', 'LIKE', 'payroll_%')
-                ->where('reference_id', $payroll->id)
+                ->whereIn('reference_number', $referenceNumbers)
                 ->get();
 
             foreach ($journals as $journal) {

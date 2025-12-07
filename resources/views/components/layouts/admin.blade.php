@@ -435,6 +435,33 @@ $('#profileForm').on('submit', function(e) {
 
 @stack('scripts')
 
+{{-- Emergency Fix: Prevent Auto-Opening Modals --}}
+<script>
+// Disable all auto-opening modals on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Close all Bootstrap modals
+    $('.modal').modal('hide');
+    $('body').removeClass('modal-open');
+    $('.modal-backdrop').remove();
+    
+    // Remove any inline styles that might keep modals visible
+    $('.modal').css('display', 'none');
+    
+    console.log('✅ All modals closed on page load');
+});
+
+// Prevent modals from auto-opening
+$(document).on('show.bs.modal', '.modal', function(e) {
+    // Allow manual triggers only
+    if (!e.namespace || e.namespace !== 'bs.modal') {
+        console.warn('⚠️ Prevented auto-opening modal:', this.id);
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    }
+});
+</script>
+
 </body>
 
 </html>

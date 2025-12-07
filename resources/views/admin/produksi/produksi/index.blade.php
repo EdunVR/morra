@@ -1,16 +1,29 @@
-{{-- resources/views/admin/produksi/index.blade.php --}}
+{{-- resources/views/admin/produksi/produksi/index.blade.php --}}
 <x-layouts.admin :title="'Data Produksi'">
+    @push('styles')
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    @endpush
+
     <div class="mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold tracking-tight">Data Produksi</h1>
                 <p class="text-slate-600">Kelola rencana & realisasi produksi</p>
             </div>
-            <button id="createProductionBtn" 
-                    class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg transition">
-                <i class='bx bx-plus'></i>
-                <span>Buat Produksi Baru</span>
-            </button>
+            <div class="flex items-center gap-3">
+                <select id="outletSelect" class="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    @foreach($outlets as $outlet)
+                        <option value="{{ $outlet->id }}" {{ $outlet->id == $selectedOutlet ? 'selected' : '' }}>
+                            {{ $outlet->nama_outlet }}
+                        </option>
+                    @endforeach
+                </select>
+                <button id="createProductionBtn" 
+                        class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg transition">
+                    <i class='bx bx-plus'></i>
+                    <span>Buat Produksi Baru</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -20,34 +33,30 @@
             {{-- Filter Section --}}
             <div class="lg:col-span-3">
                 <div class="flex flex-wrap gap-3">
-                    <select class="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-32">
-                        <option>Semua Status</option>
-                        <option>Draft</option>
-                        <option>Disetujui</option>
-                        <option>Berjalan</option>
-                        <option>Selesai</option>
-                        <option>Dibatalkan</option>
+                    <select id="filterStatus" class="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-32">
+                        <option value="all">Semua Status</option>
+                        <option value="draft">Draft</option>
+                        <option value="approved">Disetujui</option>
+                        <option value="in_progress">Berjalan</option>
+                        <option value="completed">Selesai</option>
+                        <option value="cancelled">Dibatalkan</option>
                     </select>
-                    <select class="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-32">
-                        <option>Semua Lini</option>
-                        <option>Lini A</option>
-                        <option>Lini B</option>
-                        <option>Lini C</option>
-                        <option>Lini D</option>
+                    <select id="filterLine" class="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-32">
+                        <option value="all">Semua Lini</option>
+                        <option value="Lini A">Lini A</option>
+                        <option value="Lini B">Lini B</option>
+                        <option value="Lini C">Lini C</option>
+                        <option value="Lini D">Lini D</option>
                     </select>
-                    <input type="date" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Dari Tanggal">
-                    <input type="date" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Sampai Tanggal">
-                    <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm transition">
-                        <i class='bx bx-filter-alt'></i>
-                        Filter
-                    </button>
+                    <input type="date" id="filterStartDate" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Dari Tanggal">
+                    <input type="date" id="filterEndDate" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Sampai Tanggal">
                 </div>
             </div>
 
             {{-- Quick Stats --}}
             <div class="bg-primary-50 rounded-xl p-4 border border-primary-100">
                 <div class="text-center">
-                    <div class="text-2xl font-bold text-primary-700">24</div>
+                    <div id="activeCount" class="text-2xl font-bold text-primary-700">0</div>
                     <div class="text-sm text-primary-600">Produksi Aktif</div>
                 </div>
             </div>
@@ -57,22 +66,22 @@
     {{-- ====== DATA TABLE ====== --}}
     <section class="mb-6">
         <div class="rounded-2xl border border-slate-200 bg-white shadow-card overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full">
+            <div class="overflow-x-auto p-4">
+                <table id="productionTable" class="w-full display">
                     <thead>
-                        <tr class="bg-slate-50 border-b border-slate-200">
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">ID Produksi</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">Produk</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">Lini</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">Target</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">Realisasi</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">Progress</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">Tanggal</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-900">Aksi</th>
+                        <tr>
+                            <th>ID Produksi</th>
+                            <th>Produk</th>
+                            <th>Lini</th>
+                            <th>Target</th>
+                            <th>Realisasi</th>
+                            <th>Progress</th>
+                            <th>Status</th>
+                            <th>Tanggal</th>
+                            <th>Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-200">
+                    <tbody>
                         @php
                             $productionData = [
                                 [
@@ -166,87 +175,8 @@
                             ];
                         @endphp
 
-                        @foreach($productionData as $production)
-                        <tr class="hover:bg-slate-50 transition">
-                            <td class="px-4 py-3 text-sm font-medium text-slate-900">
-                                {{ $production['id'] }}
-                            </td>
-                            <td class="px-4 py-3 text-sm text-slate-900">
-                                {{ $production['product'] }}
-                            </td>
-                            <td class="px-4 py-3 text-sm text-slate-600">
-                                {{ $production['line'] }}
-                            </td>
-                            <td class="px-4 py-3 text-sm text-slate-900">
-                                {{ number_format($production['target']) }}
-                            </td>
-                            <td class="px-4 py-3 text-sm text-slate-900">
-                                {{ number_format($production['realization']) }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    <div class="w-16 bg-slate-100 rounded-full h-2">
-                                        <div class="bg-primary-500 h-2 rounded-full" 
-                                             style="width: {{ $production['progress'] }}%"></div>
-                                    </div>
-                                    <span class="text-sm text-slate-600">{{ $production['progress'] }}%</span>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                @php
-                                    $statusColors = [
-                                        'draft' => 'bg-slate-100 text-slate-700',
-                                        'disetujui' => 'bg-blue-100 text-blue-700', 
-                                        'berjalan' => 'bg-green-100 text-green-700',
-                                        'selesai' => 'bg-emerald-100 text-emerald-700',
-                                        'dibatalkan' => 'bg-red-100 text-red-700'
-                                    ];
-                                @endphp
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusColors[$production['status']] }}">
-                                    {{ ucfirst($production['status']) }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-sm text-slate-600">
-                                {{ \Carbon\Carbon::parse($production['start_date'])->format('d M Y') }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    <button onclick="openEditModal('{{ $production['id'] }}')" 
-                                            class="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded transition">
-                                        <i class='bx bx-edit text-lg'></i>
-                                    </button>
-                                    <button class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition">
-                                        <i class='bx bx-trash text-lg'></i>
-                                    </button>
-                                    <button class="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded transition">
-                                        <i class='bx bx-show text-lg'></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        @endforeach
                     </tbody>
                 </table>
-            </div>
-
-            {{-- Pagination --}}
-            <div class="px-4 py-3 border-t border-slate-200 bg-slate-50">
-                <div class="flex items-center justify-between">
-                    <div class="text-sm text-slate-600">
-                        Menampilkan 1-8 dari 24 data
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <button class="p-2 text-slate-400 hover:text-slate-600 rounded">
-                            <i class='bx bx-chevron-left'></i>
-                        </button>
-                        <button class="w-8 h-8 bg-primary-600 text-white rounded text-sm">1</button>
-                        <button class="w-8 h-8 text-slate-600 hover:bg-slate-100 rounded text-sm">2</button>
-                        <button class="w-8 h-8 text-slate-600 hover:bg-slate-100 rounded text-sm">3</button>
-                        <button class="p-2 text-slate-400 hover:text-slate-600 rounded">
-                            <i class='bx bx-chevron-right'></i>
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     </section>
@@ -271,18 +201,15 @@
                         {{-- Basic Information --}}
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {{-- Product Selection --}}
-                            <div>
+                            <div class="relative">
                                 <label class="block text-sm font-medium text-slate-700 mb-2">Produk *</label>
-                                <select name="product_id" required 
-                                        class="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                                    <option value="">Pilih Produk</option>
-                                    <option value="1">Smartphone X1</option>
-                                    <option value="2">Tablet Pro 12</option>
-                                    <option value="3">Laptop Ultra</option>
-                                    <option value="4">Smart Watch S2</option>
-                                    <option value="5">Wireless Earbuds</option>
-                                    <option value="6">Power Bank 20k</option>
-                                </select>
+                                <input type="hidden" name="product_id" id="product_id" required>
+                                <input type="text" id="product_search" 
+                                       class="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="Ketik untuk mencari produk..." 
+                                       autocomplete="off" required>
+                                <div id="product_results" class="hidden absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
+                                <p class="text-xs text-slate-500 mt-1">Ketik minimal 2 karakter untuk mencari</p>
                             </div>
 
                             {{-- Production Line --}}
@@ -330,16 +257,13 @@
                             <div class="space-y-3" id="materialRequirements">
                                 {{-- Material row template --}}
                                 <div class="flex items-center gap-3 material-row">
+                                    <input type="hidden" name="materials[0][material_type]" value="">
                                     <select name="materials[0][material_id]" 
-                                            class="flex-1 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                            class="flex-1 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                            onchange="updateMaterialUnit(this, 0)">
                                         <option value="">Pilih Material</option>
-                                        <option value="1">Plastic ABS</option>
-                                        <option value="2">Plastic PP</option>
-                                        <option value="3">Steel Sheet</option>
-                                        <option value="4">Electronic Parts</option>
-                                        <option value="5">Packaging Box</option>
                                     </select>
-                                    <input type="number" name="materials[0][quantity]" min="1" 
+                                    <input type="number" name="materials[0][quantity]" min="1" step="0.01"
                                            class="w-32 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                            placeholder="Qty">
                                     <select name="materials[0][unit]"
@@ -425,100 +349,115 @@
         </div>
     </div>
 
+    {{-- Detail Modal --}}
+    <div id="detailModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl transform transition-all">
+                {{-- Header --}}
+                <div class="flex items-center justify-between p-6 border-b border-slate-200">
+                    <h3 class="text-xl font-semibold text-slate-800">Detail Produksi</h3>
+                    <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600 transition">
+                        <i class='bx bx-x text-2xl'></i>
+                    </button>
+                </div>
+
+                {{-- Content --}}
+                <div class="p-6 space-y-6" id="detailContent">
+                    <div class="text-center py-8">
+                        <i class='bx bx-loader-alt bx-spin text-4xl text-slate-400'></i>
+                        <p class="text-slate-500 mt-2">Memuat data...</p>
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+                    <button onclick="closeDetailModal()" 
+                            class="px-4 py-2.5 text-slate-700 hover:bg-slate-100 rounded-lg transition">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Realization Modal --}}
+    <div id="realizationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl transform transition-all">
+                {{-- Header --}}
+                <div class="flex items-center justify-between p-6 border-b border-slate-200">
+                    <h3 class="text-xl font-semibold text-slate-800">Tambah Realisasi Produksi</h3>
+                    <button onclick="closeRealizationModal()" class="text-slate-400 hover:text-slate-600 transition">
+                        <i class='bx bx-x text-2xl'></i>
+                    </button>
+                </div>
+
+                {{-- Form --}}
+                <form id="realizationForm" onsubmit="handleRealizationSubmit(event)">
+                    <div class="p-6 space-y-4">
+                        <input type="hidden" id="realization_production_id" name="production_id">
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Jumlah Diproduksi *</label>
+                            <input type="number" name="quantity_produced" min="1" required
+                                   class="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="Masukkan jumlah yang berhasil diproduksi">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Jumlah Reject</label>
+                            <input type="number" name="quantity_rejected" min="0" value="0"
+                                   class="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="Masukkan jumlah yang reject (opsional)">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Catatan</label>
+                            <textarea name="notes" rows="3"
+                                      class="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                      placeholder="Catatan tambahan (opsional)"></textarea>
+                        </div>
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+                        <button type="button" onclick="closeRealizationModal()" 
+                                class="px-4 py-2.5 text-slate-700 hover:bg-slate-100 rounded-lg transition">
+                            Batal
+                        </button>
+                        <button type="submit"
+                                class="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+                            Simpan Realisasi
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script>
-        // Modal Functions
-        function openCreateModal() {
-            console.log('Opening create modal...');
-            document.getElementById('createModal').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
+        // Define URLs for JavaScript
+        const productionDataUrl = "{{ route('admin.produksi.produksi.data') }}";
+        const storeUrl = "{{ route('admin.produksi.produksi.store') }}";
+        const showUrl = "{{ route('admin.produksi.produksi.show', ':id') }}";
+        const deleteUrl = "{{ route('admin.produksi.produksi.destroy', ':id') }}";
+        const approveUrl = "{{ route('admin.produksi.produksi.approve', ':id') }}";
+        const startUrl = "{{ route('admin.produksi.produksi.start', ':id') }}";
+        const productsUrl = "{{ route('admin.produksi.produksi.products') }}";
+        const materialsUrl = "{{ route('admin.produksi.produksi.materials') }}";
+        const statisticsUrl = "{{ route('admin.produksi.produksi.statistics') }}";
+        const addRealizationUrl = "{{ route('admin.produksi.produksi.realization', ':id') }}";
+    </script>
+    <script src="{{ asset('js/production.js') }}?v={{ time() }}"></script>
+    @endpush
 
-        function closeCreateModal() {
-            console.log('Closing create modal...');
-            document.getElementById('createModal').classList.add('hidden');
-            document.body.style.overflow = 'auto';
-        }
-
-        function openEditModal(productionId) {
-            console.log('Edit production:', productionId);
-            openCreateModal(); // Reuse create modal for edit for now
-        }
-
-        // Material Management
-        let materialCount = 1;
-
-        function addMaterial() {
-            const container = document.getElementById('materialRequirements');
-            const newRow = document.createElement('div');
-            newRow.className = 'flex items-center gap-3 material-row';
-            newRow.innerHTML = `
-                <select name="materials[${materialCount}][material_id]" 
-                        class="flex-1 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                    <option value="">Pilih Material</option>
-                    <option value="1">Plastic ABS</option>
-                    <option value="2">Plastic PP</option>
-                    <option value="3">Steel Sheet</option>
-                    <option value="4">Electronic Parts</option>
-                    <option value="5">Packaging Box</option>
-                </select>
-                <input type="number" name="materials[${materialCount}][quantity]" min="1" 
-                       class="w-32 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                       placeholder="Qty">
-                <select name="materials[${materialCount}][unit]"
-                        class="w-24 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                    <option value="kg">kg</option>
-                    <option value="pcs">pcs</option>
-                    <option value="roll">roll</option>
-                    <option value="unit">unit</option>
-                </select>
-                <button type="button" onclick="removeMaterial(this)" class="p-2 text-red-500 hover:bg-red-50 rounded">
-                    <i class='bx bx-trash'></i>
-                </button>
-            `;
-            container.appendChild(newRow);
-            materialCount++;
-        }
-
-        function removeMaterial(button) {
-            if (document.querySelectorAll('.material-row').length > 1) {
-                button.closest('.material-row').remove();
-            }
-        }
-
-        // Event Listeners
+    <script>
+        // Additional inline scripts if needed
         document.addEventListener('DOMContentLoaded', function() {
-            // Create button event listener
-            const createBtn = document.getElementById('createProductionBtn');
-            if (createBtn) {
-                createBtn.addEventListener('click', openCreateModal);
-            }
-
-            // Form submission
-            const productionForm = document.getElementById('productionForm');
-            if (productionForm) {
-                productionForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const formData = new FormData(this);
-                    const data = Object.fromEntries(formData);
-                    
-                    // Simulate API call
-                    console.log('Production data:', data);
-                    
-                    // Show success message
-                    alert('Produksi berhasil dibuat!');
-                    closeCreateModal();
-                    
-                    // In real application, you would refresh the table data here
-                });
-            }
-
-            // Close modal on ESC key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    closeCreateModal();
-                }
-            });
+            // Any page-specific initialization
         });
     </script>
 </x-layouts.admin>

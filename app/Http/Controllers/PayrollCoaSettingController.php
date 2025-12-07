@@ -18,18 +18,21 @@ class PayrollCoaSettingController extends Controller
         $outlets = $this->getUserOutlets();
         
         // Get expense accounts (Beban)
-        $expenseAccounts = ChartOfAccount::where('account_type', 'expense')
-            ->orderBy('account_code')
+        $expenseAccounts = ChartOfAccount::where('type', 'expense')
+            ->where('status', 'active')
+            ->orderBy('code')
             ->get();
         
         // Get liability accounts (Hutang)
-        $liabilityAccounts = ChartOfAccount::where('account_type', 'liability')
-            ->orderBy('account_code')
+        $liabilityAccounts = ChartOfAccount::where('type', 'liability')
+            ->where('status', 'active')
+            ->orderBy('code')
             ->get();
         
         // Get asset accounts (Kas/Bank/Piutang)
-        $assetAccounts = ChartOfAccount::where('account_type', 'asset')
-            ->orderBy('account_code')
+        $assetAccounts = ChartOfAccount::where('type', 'asset')
+            ->where('status', 'active')
+            ->orderBy('code')
             ->get();
 
         return view('admin.sdm.payroll.coa-settings', compact('outlets', 'expenseAccounts', 'liabilityAccounts', 'assetAccounts'));
