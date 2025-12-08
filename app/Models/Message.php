@@ -24,6 +24,24 @@ class Message extends Model
         'read_at' => 'datetime',
     ];
 
+    /**
+     * Set the content attribute with XSS prevention
+     * Strip all HTML tags and trim whitespace
+     */
+    public function setContentAttribute($value)
+    {
+        $this->attributes['content'] = strip_tags(trim($value));
+    }
+
+    /**
+     * Get the content attribute with proper escaping for display
+     * This is already handled by Blade's {{ }} syntax, but we ensure it here too
+     */
+    public function getContentAttribute($value)
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+
     // Relationships
     public function sender()
     {

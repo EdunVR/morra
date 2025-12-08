@@ -22,6 +22,8 @@
         "maatwebsite/excel": "^3.1",
         "milon/barcode": "^11.0",
         "onepointhub/laravel_ocr": "^1.3",
+        "predis/predis": "^3.3",
+        "pusher/pusher-php-server": "^7.2",
         "tightenco/ziggy": "^2.0",
         "yajra/laravel-datatables-oracle": "^11.0"
     },

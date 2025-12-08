@@ -14,20 +14,12 @@ export default defineConfig({
         // Code splitting untuk vendor libraries
         rollupOptions: {
             output: {
-                manualChunks: {
-                    vendor: ["vue", "axios"],
-                    sweetalert: ["sweetalert2"],
-                },
+                manualChunks: undefined,
             },
         },
         // Minification settings
-        minify: "terser",
-        terserOptions: {
-            compress: {
-                drop_console: true, // Remove console.log in production
-                drop_debugger: true,
-            },
-        },
+        minify: "esbuild",
+        target: "es2018",
         // Chunk size warning limit
         chunkSizeWarningLimit: 1000,
         // Source maps untuk debugging (disable di production jika tidak perlu)

@@ -105,7 +105,17 @@ Route::get('/homepage', function () {
 Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
 
     // Dashboard
-    Route::view('/', 'admin.dashboard')->name('dashboard');
+    Route::get('/', [App\Http\Controllers\AdminDashboardController::class, 'index'])->name('dashboard');
+    
+    // Dashboard API Endpoints
+    Route::prefix('dashboard')->name('dashboard.')->group(function () {
+        Route::get('/overview', [App\Http\Controllers\AdminDashboardController::class, 'getOverviewStats'])->name('overview');
+        Route::get('/sales-trend', [App\Http\Controllers\AdminDashboardController::class, 'getSalesTrend'])->name('sales-trend');
+        Route::get('/inventory-status', [App\Http\Controllers\AdminDashboardController::class, 'getInventoryStatus'])->name('inventory-status');
+        Route::get('/production-efficiency', [App\Http\Controllers\AdminDashboardController::class, 'getProductionEfficiency'])->name('production-efficiency');
+        Route::get('/employee-performance', [App\Http\Controllers\AdminDashboardController::class, 'getEmployeePerformance'])->name('employee-performance');
+        Route::get('/insights', [App\Http\Controllers\AdminDashboardController::class, 'getInsights'])->name('insights');
+    });
 
     // ===== Alias lama (modul utama) agar menu lama tetap hidup =====
     Route::view('/inventaris', 'admin.inventaris.index')->name('inventaris'); // <— ALIAS penting
@@ -227,7 +237,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         // Transfer Gudang Routes
         Route::get('transfer-gudang/outlets', [TransferGudangController::class, 'getOutlets'])->name('transfer-gudang.outlets');
         Route::get('transfer-gudang/items', [TransferGudangController::class, 'getItems'])->name('transfer-gudang.items');
-        Route::post('transfer-gudang/store', [TransferGudangController::class, 'store'])->name('transfer-gudang.store');
         Route::get('transfer-gudang/data', [TransferGudangController::class, 'data'])->name('transfer-gudang.data');
         Route::post('transfer-gudang/{id}/approve', [TransferGudangController::class, 'approve'])->name('transfer-gudang.approve');
         Route::post('transfer-gudang/{id}/reject', [TransferGudangController::class, 'reject'])->name('transfer-gudang.reject');
@@ -249,7 +258,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::get('tipe', [App\Http\Controllers\CustomerTypeController::class, 'index'])->name('tipe.index');
             Route::get('tipe/statistics', [App\Http\Controllers\CustomerTypeController::class, 'getStatistics'])->name('tipe.statistics');
             Route::get('tipe/data', [App\Http\Controllers\CustomerTypeController::class, 'getData'])->name('tipe.data');
+            Route::get('tipe/search-products', [App\Http\Controllers\CustomerTypeController::class, 'searchProducts'])->name('tipe.search-products');
             Route::get('tipe/{id}', [App\Http\Controllers\CustomerTypeController::class, 'show'])->name('tipe.show');
+            Route::get('tipe/{id}/products', [App\Http\Controllers\CustomerTypeController::class, 'getTypeProducts'])->name('tipe.products');
         });
         Route::post('tipe', [App\Http\Controllers\CustomerTypeController::class, 'store'])
             ->middleware('permission:crm.tipe.create')->name('tipe.store');
@@ -257,6 +268,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             ->middleware('permission:crm.tipe.update')->name('tipe.update');
         Route::delete('tipe/{id}', [App\Http\Controllers\CustomerTypeController::class, 'destroy'])
             ->middleware('permission:crm.tipe.delete')->name('tipe.destroy');
+        Route::post('tipe/{id}/products', [App\Http\Controllers\CustomerTypeController::class, 'addProduct'])
+            ->middleware('permission:crm.tipe.update')->name('tipe.add-product');
+        Route::put('tipe/products/{id}', [App\Http\Controllers\CustomerTypeController::class, 'updateProduct'])
+            ->middleware('permission:crm.tipe.update')->name('tipe.update-product');
+        Route::delete('tipe/products/{id}', [App\Http\Controllers\CustomerTypeController::class, 'removeProduct'])
+            ->middleware('permission:crm.tipe.update')->name('tipe.remove-product');
         
         // Pelanggan Routes
         Route::middleware('permission:crm.pelanggan.view')->group(function () {
@@ -325,6 +342,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
         Route::get('/pos/products', [PosController::class, 'getProducts'])->name('pos.products');
         Route::get('/pos/customers', [PosController::class, 'getCustomers'])->name('pos.customers');
+        Route::get('/pos/customer-type-prices', [PosController::class, 'getCustomerTypePrices'])->name('pos.customer-type-prices');
         Route::post('/pos/store', [PosController::class, 'store'])->name('pos.store');
         Route::get('/pos/history', [PosController::class, 'history'])->name('pos.history');
         Route::get('/pos/history-data', [PosController::class, 'historyData'])->name('pos.history.data');
@@ -757,8 +775,7 @@ Route::prefix('investor')->name('investor.')->middleware('web')->group(function 
         // Profil
         Route::get('/profil/edit', [InvestorAuthController::class, 'showEditProfileForm'])->name('profile.edit');
         Route::get('/profil/ganti-password', [InvestorAuthController::class, 'showChangePasswordForm'])->name('password.change');
-        Route::post('/profil/ganti-password', [InvestorAuthController::class, 'changePassword'])->name('password.update');
-        Route::get('/{id}/history', [InvestorAuthController::class, 'downloadHistory'])->name('accounts.history');
+        Route::post('/profil/ganti-password', [InvestorAuthController::class, 'changePassword'])->name('password.change.submit');
         Route::get('/profil', [ProfileController::class, 'show'])->name('profile');
         Route::put('/profil', [ProfileController::class, 'update'])->name('profile.update');
         Route::put('/profil/photo', [ProfileController::class, 'updatePhoto'])->name('profile.update-photo');
@@ -782,17 +799,6 @@ Route::middleware(['web', 'auth'])->group(function() {
 
     Route::get('/supplier/data', [SupplierController::class, 'data'])->name('supplier.data');
     Route::resource('/supplier', SupplierController::class);
-
-    Route::get('/bahan/data', [BahanController::class, 'data'])->name('bahan.data');
-    Route::get('/bahan/{id}', [BahanController::class, 'show'])->name('bahan.show');
-    Route::delete('bahan/delete-selected', [BahanController::class, 'deleteSelected'])->name('bahan.delete_selected');
-    Route::get('/bahan/{id}/edit', [BahanController::class, 'edit'])->name('bahan.edit');
-    Route::put('bahan/{id}', [BahanController::class, 'update'])->name('bahan.update');
-    Route::put('bahan_harga/{id}', [BahanController::class, 'updateHarga'])->name('bahan.update_harga');
-    Route::get('/bahan/{id}/edit-harga', [BahanController::class, 'editHarga'])->name('bahan.edit_harga');
-    Route::delete('/bahan/{id}/destroy-harga', [BahanController::class, 'destroyHarga'])->name('bahan.destroy_harga');
-    Route::post('/bahan/simpan', [BahanController::class, 'simpan'])->name('bahan.simpan');
-    Route::resource('/bahan', BahanController::class);
 
     Route::get('/pembelian/data', [PembelianController::class, 'data'])->name('pembelian.data');
     Route::get('/pembelian/{id}/{id_outlet_selected}/create', [PembelianController::class, 'create'])->name('pembelian.create');
@@ -937,7 +943,6 @@ Route::resource('tipe', TipeController::class);
     Route::post('/kontra_bon/store', [KontraBonController::class, 'store'])->name('kontra_bon.store');
     Route::resource('kontra_bon', KontraBonController::class)
         ->except('store');
-     Route::get('kontra_bon/{id}', [KontraBonController::class, 'show'])->name('kontra_bon.show');
     
     Route::prefix('manajemen-gudang')->group(function () {
         Route::get('/', [PermintaanPengirimanController::class, 'index'])->name('manajemen-gudang.index');
@@ -1047,7 +1052,6 @@ Route::get('/partials/sidebar/{menu}', function ($menu) {
         
         // Additional routes
         Route::get('/{annualTaxReport}/download', [AnnualTaxReportController::class, 'download'])->name('download');
-        Route::get('/{annualTaxReport}/show', [AnnualTaxReportController::class, 'show'])->name('show');
         Route::post('/{annualTaxReport}/submit', [AnnualTaxReportController::class, 'submit'])->name('submit');
     });
 
@@ -1229,31 +1233,7 @@ Route::get('/kategori/data', [KategoriController::class, 'data'])->name('kategor
     Route::get('/satuan/data', [SatuanController::class, 'data'])->name('satuan.data');
     Route::resource('/satuan', SatuanController::class); 
 
-    Route::get('/produk/data', [ProdukController::class, 'data'])->name('produk.data');
-    Route::get('/produk/{id}', [ProdukController::class, 'show'])->name('produk.show');
-    // For client-facing product detail
-    Route::get('/produk_katalog/{id}', [ProdukController::class, 'showDetail'])->name('produk.detail');
-    // Edit form (GET)
-    Route::get('/produk/{produk}/edit', [ProdukController::class, 'edit'])->name('produk.edit');
 
-    // Update action (PUT)
-    Route::put('/produk/{produk}', [ProdukController::class, 'update'])->name('produk.update');
-    Route::put('produk_hpp/{id}', [ProdukController::class, 'updateHPP'])->name('produk.update_hpp');
-    Route::get('/produk/{id}/edit-hpp', [ProdukController::class, 'editHPP'])->name('produk.edit_hpp');
-    Route::delete('/produk/{id}/destroy-hpp', [ProdukController::class, 'destroyHPP'])->name('produk.destroy_hpp');
-    Route::post('/produk/delete-selected', [ProdukController::class, 'deleteSelected'])->name('produk.delete_selected');
-    Route::post('/produk/cetak-barcode', [ProdukController::class, 'cetakBarcode'])->name('produk.cetak_barcode');
-    Route::post('/produk', [ProdukController::class, 'store'])->name('produk.store');
-    Route::post('/produk/store-hpp', [ProdukController::class, 'storeHPP'])->name('produk.store_hpp');
-    Route::resource('/produk', ProdukController::class);
-    Route::get('/produk/{id}/images', [ProdukController::class, 'getImages'])->name('produk.images');
-    Route::post('/produk/{id}/upload-images', [ProdukController::class, 'uploadImages'])->name('produk.upload_images');
-    Route::get('/produk/{id}/rabs', [ProdukController::class, 'getRabs'])->name('produk.rabs');
-    Route::post('/produk/{id}/add-rab', [ProdukController::class, 'addRab'])->name('produk.add_rab');
-    Route::post('/produk/{id}/remove-rab', [ProdukController::class, 'removeRab'])->name('produk.remove_rab');
-    Route::get('produk/create', [ProdukController::class, 'create'])->name('produk.create');
-    Route::get('/produk/{id}/variants', [ProdukController::class, 'getVariants']);
-    Route::get('/produk/{id}/components', [ProdukController::class, 'getComponents']);
 
     Route::get('outlet/data', [OutletController::class, 'data'])->name('outlet.data');
     Route::resource('outlet', OutletController::class);
@@ -1352,7 +1332,6 @@ Route::prefix('sales-management')->group(function () {
     // Invoice
     Route::get('/invoice', [SalesManagementController::class, 'invoiceIndex'])->name('sales.invoice.index');
     Route::post('/invoice', [SalesManagementController::class, 'invoiceStore'])->name('sales.invoice.store');
-    Route::get('/invoice/history', [SalesManagementController::class, 'invoiceHistory'])->name('sales.invoice.history');
     Route::get('/invoice/{id}/print', [SalesManagementController::class, 'invoicePrint'])->name('sales.invoice.print');
     Route::delete('/invoice/{id}', [SalesManagementController::class, 'invoiceDestroy'])->name('sales.invoice.destroy');
     Route::post('/invoice/{id}/status', [SalesManagementController::class, 'updateStatus'])->name('sales.invoice.status.update');
@@ -1653,6 +1632,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/produksi/{id}/start', [ProductionController::class, 'start'])->name('produksi.start');
         Route::post('/produksi/{id}/cancel', [ProductionController::class, 'cancel'])->name('produksi.cancel');
         Route::post('/produksi/{id}/realization', [ProductionController::class, 'addRealization'])->name('produksi.realization');
+    });
+
+    // ====== CHAT SYSTEM ======
+    Route::prefix('admin/chat')->name('admin.chat.')->middleware(['throttle:60,1'])->group(function () {
+        Route::get('/panel', [\App\Http\Controllers\ChatController::class, 'panel'])->name('panel');
+        Route::get('/messages', [\App\Http\Controllers\ChatController::class, 'getMessages'])->name('messages');
+        Route::post('/messages', [\App\Http\Controllers\ChatController::class, 'sendMessage'])->name('send')->middleware('throttle:10,1');
+        Route::get('/users', [\App\Http\Controllers\ChatController::class, 'getUserList'])->name('users');
+        Route::post('/mark-read', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('mark-read');
+        Route::get('/unread-count', [\App\Http\Controllers\ChatController::class, 'getUnreadCount'])->name('unread-count');
     });
     
 }); // End of admin group

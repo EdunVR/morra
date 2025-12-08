@@ -1,4 +1,7 @@
 <x-layouts.admin :title="'Tipe & Diskon Customer'">
+  {{-- Load Axios --}}
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  
   <div x-data="customerTypeManagement()" x-init="init()" class="space-y-6">
 
     {{-- Header --}}
@@ -55,15 +58,33 @@
       </div>
     </div>
 
-    {{-- Search Bar --}}
+    {{-- Filter Bar --}}
     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-      <div class="relative">
-        <i class='bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400'></i>
-        <input type="text" 
-               x-model="filters.search" 
-               @input.debounce.500ms="loadData()" 
-               placeholder="Cari nama tipe atau keterangan..."
-               class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {{-- Outlet Filter --}}
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">Filter Outlet</label>
+          <select x-model="filters.outlet_id" 
+                  @change="loadData()"
+                  class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            @foreach($outlets as $outlet)
+              <option value="{{ $outlet->id_outlet }}">{{ $outlet->nama_outlet }}</option>
+            @endforeach
+          </select>
+        </div>
+
+        {{-- Search --}}
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">Cari Tipe</label>
+          <div class="relative">
+            <i class='bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400'></i>
+            <input type="text" 
+                   x-model="filters.search" 
+                   @input.debounce.500ms="loadData()" 
+                   placeholder="Cari nama tipe atau keterangan..."
+                   class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+          </div>
+        </div>
       </div>
     </div>
 
@@ -89,15 +110,22 @@
             </div>
           </div>
 
-          <div class="flex gap-2 pt-3 border-t border-slate-100">
-            <button @click="editType(type.id_tipe)" 
-                    class="flex-1 px-3 py-1.5 text-sm rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 flex items-center justify-center gap-1">
-              <i class='bx bx-edit'></i> Edit
+          <div class="space-y-2 pt-3 border-t border-slate-100">
+            <button @click="openProductModal(type.id_tipe, type.nama_tipe)" 
+                    class="w-full px-3 py-1.5 text-sm rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 flex items-center justify-center gap-1">
+              <i class='bx bx-package'></i> Kelola Produk Diskon
+              <span x-show="type.produk_count > 0" class="ml-1 px-1.5 py-0.5 bg-blue-100 rounded-full text-xs" x-text="'(' + type.produk_count + ')'"></span>
             </button>
-            <button @click="deleteType(type.id_tipe)" 
-                    class="px-3 py-1.5 text-sm rounded-lg border border-red-200 text-red-700 hover:bg-red-50">
-              <i class='bx bx-trash'></i>
-            </button>
+            <div class="flex gap-2">
+              <button @click="editType(type.id_tipe)" 
+                      class="flex-1 px-3 py-1.5 text-sm rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 flex items-center justify-center gap-1">
+                <i class='bx bx-edit'></i> Edit
+              </button>
+              <button @click="deleteType(type.id_tipe)" 
+                      class="px-3 py-1.5 text-sm rounded-lg border border-red-200 text-red-700 hover:bg-red-50">
+                <i class='bx bx-trash'></i>
+              </button>
+            </div>
           </div>
         </div>
       </template>
@@ -157,19 +185,264 @@
       </div>
     </div>
 
+    {{-- Product Modal --}}
+    <div x-show="showProductModal" 
+         x-transition.opacity
+         class="fixed inset-0 z-50 overflow-y-auto" 
+         style="display: none;">
+      <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-black opacity-50" @click="closeProductModal()"></div>
+        
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 z-10 max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="text-xl font-bold text-slate-900">Kelola Produk Diskon</h3>
+              <p class="text-sm text-slate-600 mt-1">
+                <span x-text="'Tipe: ' + selectedTypeName"></span>
+                <span class="mx-2">•</span>
+                <span x-text="'Outlet: ' + getSelectedOutletName()"></span>
+              </p>
+            </div>
+            <button @click="closeProductModal()" class="text-slate-400 hover:text-slate-600">
+              <i class='bx bx-x text-2xl'></i>
+            </button>
+          </div>
+
+          {{-- Search & Add Product --}}
+          <div class="mb-4 space-y-3">
+            <div class="flex gap-2">
+              <div class="flex-1 relative">
+                <i class='bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400'></i>
+                <input type="text" 
+                       x-model="productSearch" 
+                       @input.debounce.300ms="searchProducts()"
+                       placeholder="Cari produk untuk ditambahkan..."
+                       class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+              </div>
+            </div>
+
+            {{-- Search Results --}}
+            <div x-show="productSearchResults.length > 0" class="border border-slate-200 rounded-lg max-h-48 overflow-y-auto">
+              <template x-for="product in productSearchResults" :key="product.id_produk">
+                <div class="p-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 flex items-center justify-between">
+                  <div class="flex-1">
+                    <div class="font-medium" x-text="product.nama_produk"></div>
+                    <div class="text-sm text-slate-600" x-text="'Kode: ' + product.kode_produk + ' | Harga: Rp ' + formatNumber(product.harga_jual)"></div>
+                  </div>
+                  <button @click="openAddProductForm(product)" 
+                          class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                    <i class='bx bx-plus'></i> Tambah
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          {{-- Selected Products List --}}
+          <div class="border border-slate-200 rounded-lg">
+            <div class="bg-slate-50 px-4 py-3 border-b border-slate-200">
+              <h4 class="font-semibold text-slate-900">Produk yang Mendapat Diskon</h4>
+              <p class="text-sm text-slate-600 mt-1" x-text="selectedProducts.length + ' produk'"></p>
+            </div>
+            
+            <div class="divide-y divide-slate-100">
+              <template x-for="product in selectedProducts" :key="product.id">
+                <div class="p-4 hover:bg-slate-50">
+                  <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                      <div class="font-medium" x-text="product.produk.nama_produk"></div>
+                      <div class="text-sm text-slate-600">
+                        <span x-text="'Kode: ' + product.produk.kode_produk"></span>
+                        <span class="mx-2">|</span>
+                        <span x-text="'Harga Normal: Rp ' + formatNumber(product.produk.harga_jual)"></span>
+                      </div>
+                    </div>
+                    <button @click="removeProductFromType(product.id)" 
+                            class="px-3 py-1.5 text-sm border border-red-200 text-red-700 rounded-lg hover:bg-red-50">
+                      <i class='bx bx-trash'></i>
+                    </button>
+                  </div>
+                  
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 mb-1">Diskon (%)</label>
+                      <input type="number" 
+                             :value="product.diskon" 
+                             @change="updateProductDiscount(product.id, $event.target.value, product.harga_jual)"
+                             min="0" 
+                             max="100" 
+                             step="0.01"
+                             class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 mb-1">Harga Jual Khusus (Rp)</label>
+                      <input type="number" 
+                             :value="product.harga_jual" 
+                             @change="updateProductDiscount(product.id, product.diskon, $event.target.value)"
+                             min="0" 
+                             step="0.01"
+                             placeholder="Kosongkan jika pakai diskon"
+                             class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+                  </div>
+                  
+                  <div x-show="product.diskon > 0 || product.harga_jual > 0" class="mt-2 p-2 bg-green-50 rounded-lg">
+                    <div class="text-sm font-medium text-green-700">
+                      <template x-if="product.harga_jual > 0">
+                        <span x-text="'Harga Final: Rp ' + formatNumber(product.harga_jual)"></span>
+                      </template>
+                      <template x-if="product.harga_jual == 0 && product.diskon > 0">
+                        <span x-text="'Harga Final: Rp ' + formatNumber(product.produk.harga_jual * (1 - product.diskon / 100))"></span>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <div x-show="selectedProducts.length === 0" class="p-8 text-center text-slate-500">
+                <i class='bx bx-package text-4xl mb-2'></i>
+                <p>Belum ada produk yang ditambahkan</p>
+                <p class="text-sm mt-1">Gunakan pencarian di atas untuk menambah produk</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3 mt-6">
+            <button type="button" @click="closeProductModal()" 
+                    class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700">
+              Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {{-- Add Product Form Modal --}}
+    <div x-show="showAddProductForm" 
+         x-transition.opacity
+         class="fixed inset-0 z-[60] overflow-y-auto" 
+         style="display: none;">
+      <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-black opacity-50" @click="closeAddProductForm()"></div>
+        
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 z-10">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-900">Tambah Produk</h3>
+            <button @click="closeAddProductForm()" class="text-slate-400 hover:text-slate-600">
+              <i class='bx bx-x text-2xl'></i>
+            </button>
+          </div>
+
+          <div class="mb-4">
+            <div class="font-medium" x-text="addProductFormData.nama_produk"></div>
+            <div class="text-sm text-slate-600" x-text="'Kode: ' + addProductFormData.kode_produk"></div>
+            <div class="text-sm text-slate-600" x-text="'Harga Normal: Rp ' + formatNumber(addProductFormData.harga_jual)"></div>
+          </div>
+
+          <form @submit.prevent="submitAddProduct()">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Diskon (%)</label>
+                <input type="number" 
+                       x-model="addProductFormData.diskon" 
+                       min="0" 
+                       max="100" 
+                       step="0.01"
+                       placeholder="0"
+                       class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <p class="text-xs text-slate-500 mt-1">Masukkan persentase diskon (0-100)</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Harga Jual Khusus (Rp)</label>
+                <input type="number" 
+                       x-model="addProductFormData.harga_jual_khusus" 
+                       min="0" 
+                       step="0.01"
+                       placeholder="Kosongkan jika menggunakan diskon"
+                       class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <p class="text-xs text-slate-500 mt-1">Atau set harga jual khusus (akan override diskon)</p>
+              </div>
+
+              <div x-show="addProductFormData.diskon > 0 || addProductFormData.harga_jual_khusus > 0" 
+                   class="p-3 bg-green-50 rounded-lg">
+                <div class="text-sm font-medium text-green-700">
+                  <template x-if="addProductFormData.harga_jual_khusus > 0">
+                    <span x-text="'Harga Final: Rp ' + formatNumber(addProductFormData.harga_jual_khusus)"></span>
+                  </template>
+                  <template x-if="!addProductFormData.harga_jual_khusus && addProductFormData.diskon > 0">
+                    <span x-text="'Harga Final: Rp ' + formatNumber(addProductFormData.harga_jual * (1 - addProductFormData.diskon / 100))"></span>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+              <button type="button" @click="closeAddProductForm()" 
+                      class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
+                Batal
+              </button>
+              <button type="submit" :disabled="loading"
+                      class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                <span x-show="!loading">Tambah Produk</span>
+                <span x-show="loading">Menambahkan...</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
+    // Configure Axios with CSRF token
+    if (typeof axios !== 'undefined') {
+      // Set default headers
+      axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+      axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+      axios.defaults.headers.common['Accept'] = 'application/json';
+      axios.defaults.withCredentials = true; // Important for CORS/subdomain
+      
+      // Add interceptor to refresh token on 419
+      axios.interceptors.response.use(
+        response => response,
+        error => {
+          if (error.response && error.response.status === 419) {
+            alert('Session expired. Halaman akan di-refresh.');
+            window.location.reload();
+          }
+          return Promise.reject(error);
+        }
+      );
+    }
+
     function customerTypeManagement() {
       return {
         types: [],
         showModal: false,
+        showProductModal: false,
+        showAddProductForm: false,
         modalTitle: 'Tambah Tipe',
         loading: false,
         editMode: false,
         editId: null,
+        selectedTypeId: null,
+        selectedTypeName: '',
+        selectedProducts: [],
+        productSearch: '',
+        productSearchResults: [],
+        addProductFormData: {
+          id_produk: null,
+          nama_produk: '',
+          kode_produk: '',
+          harga_jual: 0,
+          diskon: 0,
+          harga_jual_khusus: null
+        },
         filters: {
-          search: ''
+          search: '',
+          outlet_id: '{{ $outlets->first()->id_outlet ?? "" }}'
         },
         formData: {
           nama_tipe: '',
@@ -188,7 +461,8 @@
 
         loadData() {
           const params = new URLSearchParams({
-            search: this.filters.search
+            search: this.filters.search,
+            outlet_id: this.filters.outlet_id
           });
 
           fetch(`{{ route("admin.crm.tipe.data") }}?${params}`)
@@ -241,64 +515,59 @@
             .catch(err => console.error('Error loading type:', err));
         },
 
-        submitForm() {
+        async submitForm() {
           this.loading = true;
-          const url = this.editMode 
-            ? `{{ url('admin/crm/tipe') }}/${this.editId}`
-            : '{{ route("admin.crm.tipe.store") }}';
           
-          const method = this.editMode ? 'PUT' : 'POST';
-
-          fetch(url, {
-            method: method,
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify(this.formData)
-          })
-          .then(res => res.json())
-          .then(data => {
+          try {
+            const url = this.editMode 
+              ? `{{ url('admin/crm/tipe') }}/${this.editId}`
+              : '{{ route("admin.crm.tipe.store") }}';
+            
+            const method = this.editMode ? 'put' : 'post';
+            
+            const response = await axios[method](url, this.formData);
+            
             this.loading = false;
-            if (data.success) {
-              alert(data.message);
+            if (response.data.success) {
+              alert(response.data.message);
               this.closeModal();
               this.loadData();
               this.loadStatistics();
             } else {
-              alert(data.message || 'Terjadi kesalahan');
+              alert(response.data.message || 'Terjadi kesalahan');
             }
-          })
-          .catch(error => {
+          } catch (error) {
             this.loading = false;
-            alert('Terjadi kesalahan');
             console.error('Error:', error);
-          });
+            if (error.response) {
+              alert('Error: ' + (error.response.data.message || error.response.statusText));
+            } else {
+              alert('Terjadi kesalahan: ' + error.message);
+            }
+          }
         },
 
-        deleteType(id) {
+        async deleteType(id) {
           if (!confirm('Apakah Anda yakin ingin menghapus tipe customer ini?')) return;
 
-          fetch(`{{ url('admin/crm/tipe') }}/${id}`, {
-            method: 'DELETE',
-            headers: {
-              'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            }
-          })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success) {
-              alert(data.message);
+          try {
+            const response = await axios.delete(`{{ url('admin/crm/tipe') }}/${id}`);
+            
+            if (response.data.success) {
+              alert(response.data.message);
               this.loadData();
               this.loadStatistics();
             } else {
-              alert(data.message || 'Gagal menghapus tipe customer');
+              alert(response.data.message || 'Gagal menghapus tipe customer');
             }
-          })
-          .catch(err => {
-            alert('Terjadi kesalahan');
-            console.error('Error:', err);
-          });
+          } catch (error) {
+            console.error('Error:', error);
+            if (error.response) {
+              alert('Error: ' + (error.response.data.message || error.response.statusText));
+            } else {
+              alert('Terjadi kesalahan: ' + error.message);
+            }
+          }
         },
 
         closeModal() {
@@ -311,6 +580,169 @@
             nama_tipe: '',
             keterangan: ''
           };
+        },
+
+        // Product Management Methods
+        openProductModal(typeId, typeName) {
+          this.selectedTypeId = typeId;
+          this.selectedTypeName = typeName;
+          this.showProductModal = true;
+          this.loadTypeProducts(typeId);
+          this.productSearch = '';
+          this.productSearchResults = [];
+        },
+
+        closeProductModal() {
+          this.showProductModal = false;
+          this.selectedTypeId = null;
+          this.selectedTypeName = '';
+          this.selectedProducts = [];
+          this.productSearch = '';
+          this.productSearchResults = [];
+          this.loadData(); // Reload to update product counts
+        },
+
+        loadTypeProducts(typeId) {
+          fetch(`{{ url('admin/crm/tipe') }}/${typeId}/products`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                this.selectedProducts = data.data;
+              }
+            })
+            .catch(err => console.error('Error loading products:', err));
+        },
+
+        searchProducts() {
+          if (this.productSearch.length < 2) {
+            this.productSearchResults = [];
+            return;
+          }
+
+          fetch(`{{ route('admin.crm.tipe.search-products') }}?search=${encodeURIComponent(this.productSearch)}&type_id=${this.selectedTypeId}&outlet_id=${this.filters.outlet_id}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                this.productSearchResults = data.data;
+              }
+            })
+            .catch(err => console.error('Error searching products:', err));
+        },
+
+        openAddProductForm(product) {
+          this.addProductFormData = {
+            id_produk: product.id_produk,
+            nama_produk: product.nama_produk,
+            kode_produk: product.kode_produk,
+            harga_jual: product.harga_jual,
+            diskon: 0,
+            harga_jual_khusus: null
+          };
+          this.showAddProductForm = true;
+        },
+
+        closeAddProductForm() {
+          this.showAddProductForm = false;
+          this.addProductFormData = {
+            id_produk: null,
+            nama_produk: '',
+            kode_produk: '',
+            harga_jual: 0,
+            diskon: 0,
+            harga_jual_khusus: null
+          };
+        },
+
+        async submitAddProduct() {
+          this.loading = true;
+          
+          try {
+            const response = await axios.post(
+              `{{ url('admin/crm/tipe') }}/${this.selectedTypeId}/products`,
+              { 
+                id_produk: this.addProductFormData.id_produk,
+                diskon: this.addProductFormData.diskon || 0,
+                harga_jual: this.addProductFormData.harga_jual_khusus || null
+              }
+            );
+            
+            this.loading = false;
+            
+            if (response.data.success) {
+              this.loadTypeProducts(this.selectedTypeId);
+              this.productSearch = '';
+              this.productSearchResults = [];
+              this.closeAddProductForm();
+              alert(response.data.message);
+            } else {
+              alert(response.data.message || 'Gagal menambahkan produk');
+            }
+          } catch (error) {
+            this.loading = false;
+            console.error('Error:', error);
+            if (error.response) {
+              alert('Error: ' + (error.response.data.message || error.response.statusText));
+            } else {
+              alert('Terjadi kesalahan: ' + error.message);
+            }
+          }
+        },
+
+        async updateProductDiscount(produkTipeId, diskon, hargaJual) {
+          try {
+            const response = await axios.put(
+              `{{ url('admin/crm/tipe/products') }}/${produkTipeId}`,
+              { 
+                diskon: diskon || 0,
+                harga_jual: hargaJual || null
+              }
+            );
+            
+            if (response.data.success) {
+              this.loadTypeProducts(this.selectedTypeId);
+            } else {
+              alert(response.data.message || 'Gagal mengupdate diskon');
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            if (error.response) {
+              alert('Error: ' + (error.response.data.message || error.response.statusText));
+            } else {
+              alert('Terjadi kesalahan: ' + error.message);
+            }
+          }
+        },
+
+        async removeProductFromType(produkTipeId) {
+          if (!confirm('Hapus produk dari tipe ini?')) return;
+
+          try {
+            const response = await axios.delete(`{{ url('admin/crm/tipe/products') }}/${produkTipeId}`);
+            
+            if (response.data.success) {
+              this.loadTypeProducts(this.selectedTypeId);
+              alert(response.data.message);
+            } else {
+              alert(response.data.message || 'Gagal menghapus produk');
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            if (error.response) {
+              alert('Error: ' + (error.response.data.message || error.response.statusText));
+            } else {
+              alert('Terjadi kesalahan: ' + error.message);
+            }
+          }
+        },
+
+        formatNumber(num) {
+          return new Intl.NumberFormat('id-ID').format(num);
+        },
+
+        getSelectedOutletName() {
+          const outlets = @json($outlets);
+          const selected = outlets.find(o => o.id_outlet == this.filters.outlet_id);
+          return selected ? selected.nama_outlet : '';
         }
       }
     }

@@ -82,7 +82,10 @@
               </button>
               <template x-for="c in filteredCustomers()" :key="c.id">
                 <button x-on:click="selectCustomer(c)" class="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg">
-                  <div class="font-medium" x-text="c.name"></div>
+                  <div class="flex items-center justify-between">
+                    <div class="font-medium" x-text="c.name"></div>
+                    <span x-show="c.tipe_name" class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700" x-text="c.tipe_name"></span>
+                  </div>
                   <div class="text-xs text-slate-500" x-text="c.telepon"></div>
                   <div class="text-xs" :class="c.piutang > 0 ? 'text-red-600' : 'text-green-600'" x-text="c.piutang > 0 ? 'Piutang: ' + idr(c.piutang) : 'Tidak ada piutang'"></div>
                 </button>
@@ -91,6 +94,7 @@
           </div>
           <div x-show="state.customerId" class="mt-1 text-xs text-slate-600">
             <span x-text="selectedCustomer()?.name"></span>
+            <span x-show="selectedCustomer()?.tipe_name" class="ml-2 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700" x-text="selectedCustomer()?.tipe_name"></span>
             <span x-show="selectedCustomer()?.piutang > 0" class="text-red-600 ml-2" x-text="'(Piutang: ' + idr(selectedCustomer()?.piutang || 0) + ')'"></span>
           </div>
         </div>
@@ -120,6 +124,10 @@
                 <td class="px-3 py-2">
                   <div class="font-medium" x-text="c.name"></div>
                   <div class="text-xs text-slate-500" x-text="c.sku"></div>
+                  <div x-show="c.has_discount" class="text-xs text-green-600 mt-1">
+                    <span x-text="c.discount_info"></span>
+                    <span class="line-through text-slate-400 ml-1" x-text="'(' + idr(c.original_price) + ')'"></span>
+                  </div>
                 </td>
                 <td class="px-3 py-2">
                   <div class="flex items-center justify-center gap-2">
@@ -548,6 +556,7 @@ function posApp() {
       outlet: {{ $selectedOutlet }},
       cashier: 'Kasir-01',
       customerId: '',
+      customerTypeId: null,
       note: '',
       discountRp: 0,
       discountPct: 0,
@@ -556,6 +565,7 @@ function posApp() {
     },
     products: [],
     customers: [],
+    customerTypePrices: {},
     categories: [],
     cart: [],
     holds: [],
@@ -771,15 +781,75 @@ function posApp() {
       this.ui.customerDropdown = true;
     },
 
-    selectCustomer(customer) {
+    async selectCustomer(customer) {
       if(customer) {
         this.state.customerId = customer.id;
+        this.state.customerTypeId = customer.id_tipe;
         this.ui.customerSearch = customer.name;
+        
+        // Load customer type prices if customer has type
+        if(customer.id_tipe) {
+          await this.loadCustomerTypePrices(customer.id_tipe);
+          // Recalculate cart with new prices
+          this.applyCustomerTypePrices();
+        } else {
+          // Reset to normal prices
+          this.customerTypePrices = {};
+          this.applyCustomerTypePrices();
+        }
       } else {
         this.state.customerId = '';
+        this.state.customerTypeId = null;
         this.ui.customerSearch = '';
+        this.customerTypePrices = {};
+        this.applyCustomerTypePrices();
       }
       this.ui.customerDropdown = false;
+    },
+
+    async loadCustomerTypePrices(idTipe) {
+      try {
+        const response = await fetch('{{ route("admin.penjualan.pos.customer-type-prices") }}?id_tipe=' + idTipe + '&outlet_id=' + this.state.outlet);
+        const result = await response.json();
+        if(result.success) {
+          // Convert array to object keyed by id_produk
+          this.customerTypePrices = result.data;
+        }
+      } catch(e) {
+        console.error('Failed to load customer type prices:', e);
+      }
+    },
+
+    applyCustomerTypePrices() {
+      // Update cart prices based on customer type
+      this.cart = this.cart.map(item => {
+        const typePrice = this.customerTypePrices[item.id_produk];
+        if(typePrice) {
+          return {
+            ...item,
+            price: typePrice.harga_final,
+            original_price: typePrice.harga_normal,
+            has_discount: true,
+            discount_info: typePrice.harga_khusus > 0 
+              ? `Harga Khusus: ${this.idr(typePrice.harga_khusus)}`
+              : `Diskon ${typePrice.diskon}%`
+          };
+        } else {
+          // Reset to normal price
+          const product = this.products.find(p => p.id_produk === item.id_produk);
+          if(product) {
+            return {
+              ...item,
+              price: product.price,
+              original_price: product.price,
+              has_discount: false,
+              discount_info: null
+            };
+          }
+        }
+        return item;
+      });
+      this.recalc();
     },
 
     selectedCustomer() {
@@ -831,11 +901,30 @@ function posApp() {
         if (this.cart[ix].qty + 1 > p.stock) { alert('Qty melebihi stok.'); return; }
         this.cart[ix].qty++;
       } else {
+        // Check if customer has type discount
+        let finalPrice = p.price;
+        let hasDiscount = false;
+        let discountInfo = null;
+        let originalPrice = p.price;
+        
+        const typePrice = this.customerTypePrices[p.id_produk];
+        if(typePrice) {
+          finalPrice = typePrice.harga_final;
+          originalPrice = typePrice.harga_normal;
+          hasDiscount = true;
+          discountInfo = typePrice.harga_khusus > 0 
+            ? `Harga Khusus: ${this.idr(typePrice.harga_khusus)}`
+            : `Diskon ${typePrice.diskon}%`;
+        }
+        
         this.cart.push({ 
           id_produk: p.id_produk,
           sku: p.sku, 
           name: p.name, 
-          price: p.price, 
+          price: finalPrice,
+          original_price: originalPrice,
+          has_discount: hasDiscount,
+          discount_info: discountInfo,
           qty: 1,
           satuan: p.satuan,
           tipe: 'produk'
@@ -881,6 +970,10 @@ function posApp() {
     clearCart() {
       if(!confirm('Kosongkan keranjang?')) return;
       this.cart = []; 
+      this.state.customerId = '';
+      this.state.customerTypeId = null;
+      this.ui.customerSearch = '';
+      this.customerTypePrices = {};
       this.state.discountRp=0; 
       this.state.discountPct=0; 
       this.state.tax10=false; 
@@ -891,7 +984,13 @@ function posApp() {
     },
 
     recalc() {
+      // Don't override prices if customer type discount is applied
+      // Only update price if product doesn't have customer type discount
       this.cart = this.cart.map(c=>{
+        if(c.has_discount) {
+          // Keep the discounted price
+          return c;
+        }
         const p = this.products.find(x=>x.sku===c.sku);
         return {...c, price: p ? p.price : c.price};
       });

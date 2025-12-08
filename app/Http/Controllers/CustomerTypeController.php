@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Tipe;
 use App\Models\Outlet;
+use App\Models\ProdukTipe;
+use App\Models\Produk;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -15,7 +17,23 @@ class CustomerTypeController extends Controller
      */
     public function index(Request $request)
     {
-        $outlets = Outlet::where('is_active', true)->get();
+        $user = auth()->user();
+        
+        // Get outlets based on user access
+        if ($user->hasRole('superadmin')) {
+            $outlets = Outlet::where('is_active', true)->get();
+        } else {
+            // Get outlets from user's outlet access
+            $outletIds = $user->outlets()->pluck('outlet_id')->toArray();
+            $outlets = Outlet::whereIn('id_outlet', $outletIds)
+                ->where('is_active', true)
+                ->get();
+        }
+        
+        // If no outlets found, get all active outlets (fallback)
+        if ($outlets->isEmpty()) {
+            $outlets = Outlet::where('is_active', true)->get();
+        }
         
         return view('admin.crm.tipe.index', compact('outlets'));
     }
@@ -46,6 +64,7 @@ class CustomerTypeController extends Controller
                 'nama_tipe' => $type->nama_tipe,
                 'keterangan' => $type->keterangan,
                 'member_count' => \App\Models\Member::where('id_tipe', $type->id_tipe)->count(),
+                'produk_count' => \App\Models\ProdukTipe::where('id_tipe', $type->id_tipe)->count(),
                 'created_at' => $type->created_at ? $type->created_at->format('d/m/Y') : '-',
             ];
         });
@@ -230,6 +249,209 @@ class CustomerTypeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil statistik'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get products for a type
+     */
+    public function getTypeProducts($id)
+    {
+        try {
+            $products = \App\Models\ProdukTipe::where('id_tipe', $id)
+                ->with('produk')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $products
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error getting type products: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil produk'
+            ], 500);
+        }
+    }
+
+    /**
+     * Search products to add to type
+     */
+    public function searchProducts(Request $request)
+    {
+        try {
+            $search = $request->get('search', '');
+            $typeId = $request->get('type_id');
+            $outletId = $request->get('outlet_id');
+
+            // Get products that are not yet in this type
+            $existingProductIds = ProdukTipe::where('id_tipe', $typeId)
+                ->pluck('id_produk')
+                ->toArray();
+
+            $query = Produk::where(function($q) use ($search) {
+                    $q->where('nama_produk', 'like', "%{$search}%")
+                      ->orWhere('kode_produk', 'like', "%{$search}%");
+                })
+                ->whereNotIn('id_produk', $existingProductIds)
+                ->where('is_active', true);
+
+            // Filter by outlet if provided
+            if ($outletId) {
+                $query->where('id_outlet', $outletId);
+            }
+
+            $products = $query->limit(10)
+                ->get(['id_produk', 'kode_produk', 'nama_produk', 'harga_jual']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $products
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error searching products: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mencari produk'
+            ], 500);
+        }
+    }
+
+    /**
+     * Add product to type
+     */
+    public function addProduct(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'id_produk' => 'required|exists:produk,id_produk',
+            'diskon' => 'nullable|numeric|min:0|max:100',
+            'harga_jual' => 'nullable|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Check if already exists
+            $exists = \App\Models\ProdukTipe::where('id_tipe', $id)
+                ->where('id_produk', $request->id_produk)
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Produk sudah ada dalam tipe ini'
+                ], 422);
+            }
+
+            \App\Models\ProdukTipe::create([
+                'id_tipe' => $id,
+                'id_produk' => $request->id_produk,
+                'diskon' => $request->diskon ?? 0,
+                'harga_jual' => $request->harga_jual,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Produk berhasil ditambahkan'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error adding product to type: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menambahkan produk: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update product in type (diskon & harga_jual)
+     */
+    public function updateProduct(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'diskon' => 'nullable|numeric|min:0|max:100',
+            'harga_jual' => 'nullable|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $produkTipe = \App\Models\ProdukTipe::findOrFail($id);
+            $produkTipe->update([
+                'diskon' => $request->diskon ?? 0,
+                'harga_jual' => $request->harga_jual,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Diskon dan harga berhasil diupdate'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error updating product in type: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengupdate produk: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove product from type
+     */
+    public function removeProduct($id)
+    {
+        try {
+            DB::beginTransaction();
+
+            $produkTipe = \App\Models\ProdukTipe::findOrFail($id);
+            $produkTipe->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Produk berhasil dihapus dari tipe'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error removing product from type: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus produk: ' . $e->getMessage()
             ], 500);
         }
     }

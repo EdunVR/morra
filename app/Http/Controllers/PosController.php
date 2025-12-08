@@ -106,7 +106,7 @@ class PosController extends Controller
     }
 
     /**
-     * Get customers for POS with piutang info
+     * Get customers for POS with piutang info and tipe
      * Optimized with caching
      */
     public function getCustomers()
@@ -115,7 +115,8 @@ class PosController extends Controller
         $cacheKey = "pos_customers_all";
         
         $customers = \App\Services\CacheService::remember($cacheKey, function() {
-            return Member::select('id_member', 'nama', 'telepon')
+            return Member::select('id_member', 'nama', 'telepon', 'id_tipe')
+                ->with('tipe:id_tipe,nama_tipe')
                 ->withTotalPiutang()
                 ->orderBy('nama')
                 ->get()
@@ -124,7 +125,9 @@ class PosController extends Controller
                         'id' => $customer->id_member,
                         'name' => $customer->nama,
                         'telepon' => $customer->telepon,
-                        'piutang' => $customer->total_piutang ?? 0
+                        'piutang' => $customer->total_piutang ?? 0,
+                        'id_tipe' => $customer->id_tipe,
+                        'tipe_name' => $customer->tipe ? $customer->tipe->nama_tipe : null
                     ];
                 })
                 ->toArray();
@@ -134,6 +137,63 @@ class PosController extends Controller
             'success' => true,
             'data' => $customers
         ]);
+    }
+
+    /**
+     * Get product prices for customer type
+     */
+    public function getCustomerTypePrices(Request $request)
+    {
+        $idTipe = $request->get('id_tipe');
+        $outletId = $request->get('outlet_id', auth()->user()->outlet_id ?? 1);
+        
+        if (!$idTipe) {
+            return response()->json([
+                'success' => true,
+                'data' => []
+            ]);
+        }
+
+        try {
+            // Get produk_tipe with diskon and harga_jual
+            $produkTipe = \App\Models\ProdukTipe::where('id_tipe', $idTipe)
+                ->with('produk:id_produk,kode_produk,harga_jual')
+                ->get()
+                ->map(function($pt) {
+                    $hargaFinal = $pt->harga_jual; // Harga jual khusus
+                    
+                    // Jika tidak ada harga jual khusus, hitung dari diskon
+                    if (!$hargaFinal || $hargaFinal == 0) {
+                        $hargaNormal = $pt->produk->harga_jual;
+                        $diskon = $pt->diskon ?? 0;
+                        $hargaFinal = $hargaNormal * (1 - $diskon / 100);
+                    }
+                    
+                    return [
+                        'id_produk' => $pt->id_produk,
+                        'sku' => $pt->produk->kode_produk,
+                        'harga_normal' => $pt->produk->harga_jual,
+                        'diskon' => $pt->diskon ?? 0,
+                        'harga_khusus' => $pt->harga_jual,
+                        'harga_final' => $hargaFinal
+                    ];
+                })
+                ->keyBy('id_produk')
+                ->toArray();
+
+            return response()->json([
+                'success' => true,
+                'data' => $produkTipe
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error getting customer type prices: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil harga: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
