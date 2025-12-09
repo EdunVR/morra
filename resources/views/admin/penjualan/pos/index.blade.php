@@ -19,7 +19,7 @@
       </div>
       <div class="flex items-center gap-3">
         <div class="text-sm text-slate-600" x-text="nowStr"></div>
-        <select x-model="state.outlet" class="h-10 rounded-xl border border-slate-200 px-3">
+        <select x-model="state.outlet" @change="onOutletChange()" class="h-10 rounded-xl border border-slate-200 px-3">
           @foreach($outlets as $outlet)
             <option value="{{ $outlet->id_outlet }}">{{ $outlet->nama_outlet }}</option>
           @endforeach
@@ -47,6 +47,17 @@
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+        {{-- Loading State --}}
+        <template x-if="products.length === 0">
+          <div class="col-span-full flex flex-col items-center justify-center py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-600 mb-4"></div>
+            <p class="text-lg font-semibold text-slate-700 mb-1">Memuat produk...</p>
+            <p class="text-sm text-slate-500" x-text="'Outlet: ' + state.outlet"></p>
+            <p class="text-xs text-slate-400 mt-2">Jika loading terlalu lama, cek console (F12)</p>
+          </div>
+        </template>
+        
+        {{-- Product Grid --}}
         <template x-for="p in filteredProducts()" :key="p.sku">
           <button class="text-left rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 p-3 shadow-sm flex flex-col" x-on:click="addItem(p)">
             <div class="w-full aspect-square bg-slate-100 rounded-lg mb-2 overflow-hidden flex items-center justify-center">
@@ -619,17 +630,116 @@ function posApp() {
       this.recalc();
     },
 
+    async onOutletChange() {
+      console.log('🔄 [POS] Outlet changed to:', this.state.outlet);
+      console.time('⏱️ [POS] Outlet change duration');
+      
+      // Clear products first to show loading state
+      console.log('🗑️ [POS] Clearing products and categories...');
+      this.products = [];
+      this.categories = [];
+      
+      // Clear cart to avoid mixing products from different outlets
+      console.log('🛒 [POS] Clearing cart...');
+      this.clearCart();
+      
+      // Reload products when outlet changes
+      console.log('📦 [POS] Loading products for outlet:', this.state.outlet);
+      await this.loadProducts();
+      
+      // Reload COA data for the new outlet
+      console.log('💰 [POS] Loading COA data for outlet:', this.state.outlet);
+      await this.loadCoaData();
+      
+      console.timeEnd('⏱️ [POS] Outlet change duration');
+      console.log('✅ [POS] Outlet change complete. Products count:', this.products.length);
+    },
+
     async loadProducts() {
+      const startTime = performance.now();
+      console.log('📦 [POS] loadProducts() started for outlet:', this.state.outlet);
+      
       try {
-        const response = await fetch('{{ route("admin.penjualan.pos.products") }}?outlet_id=' + this.state.outlet);
+        // Clear products before loading
+        this.products = [];
+        this.categories = [];
+        console.log('🗑️ [POS] Products cleared');
+        
+        const url = '{{ route("admin.penjualan.pos.products") }}?outlet_id=' + this.state.outlet;
+        console.log('🌐 [POS] Fetching from:', url);
+        
+        // Add timeout warning
+        const timeoutWarning = setTimeout(() => {
+          console.warn('⚠️ [POS] Request taking longer than 3 seconds...');
+        }, 3000);
+        
+        const fetchStart = performance.now();
+        const response = await fetch(url);
+        clearTimeout(timeoutWarning);
+        
+        const fetchDuration = performance.now() - fetchStart;
+        console.log(`⏱️ [POS] Fetch completed in ${fetchDuration.toFixed(2)}ms`);
+        
+        if (fetchDuration > 2000) {
+          console.warn(`⚠️ [POS] Slow response detected: ${fetchDuration.toFixed(2)}ms`);
+        }
+        
+        console.log('📡 [POS] Response status:', response.status);
+        console.log('📡 [POS] Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        // Check if response is OK
+        if (!response.ok) {
+          console.error('❌ [POS] Failed to load products: HTTP ' + response.status);
+          alert('Gagal memuat produk. Silakan refresh halaman.');
+          return;
+        }
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        console.log('📄 [POS] Content-Type:', contentType);
+        
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('❌ [POS] Response is not JSON:', contentType);
+          const text = await response.text();
+          console.error('📄 [POS] Response body:', text.substring(0, 500));
+          alert('Terjadi kesalahan. Silakan login ulang.');
+          return;
+        }
+        
+        const parseStart = performance.now();
         const result = await response.json();
+        const parseDuration = performance.now() - parseStart;
+        console.log(`⏱️ [POS] JSON parsed in ${parseDuration.toFixed(2)}ms`);
+        console.log('📦 [POS] API Response:', result);
+        
         if(result.success) {
-          this.products = result.data;
+          const productsData = result.data || [];
+          console.log('✅ [POS] Products received:', productsData.length);
+          console.log('📦 [POS] Sample product:', productsData[0]);
+          
+          this.products = productsData;
           this.categories = [...new Set(this.products.map(p=>p.category))];
-          this.generateBarcodes();
+          console.log('📂 [POS] Categories:', this.categories);
+          
+          // Generate barcodes after products are loaded
+          console.log('🔢 [POS] Scheduling barcode generation...');
+          this.$nextTick(() => {
+            console.log('🔢 [POS] Generating barcodes...');
+            this.generateBarcodes();
+            console.log('✅ [POS] Barcodes generated');
+          });
+          
+          const totalDuration = performance.now() - startTime;
+          console.log(`✅ [POS] loadProducts() completed in ${totalDuration.toFixed(2)}ms`);
+        } else {
+          console.error('❌ [POS] Load products failed:', result.message);
+          alert('Gagal memuat produk: ' + (result.message || 'Unknown error'));
         }
       } catch(e) {
-        console.error('Failed to load products:', e);
+        const totalDuration = performance.now() - startTime;
+        console.error(`❌ [POS] Failed to load products after ${totalDuration.toFixed(2)}ms:`, e);
+        console.error('❌ [POS] Error stack:', e.stack);
+        alert('Terjadi kesalahan saat memuat produk: ' + e.message);
       }
     },
 
@@ -646,23 +756,40 @@ function posApp() {
     },
 
     async loadCoaData() {
+      const startTime = performance.now();
+      console.log('💰 [POS] loadCoaData() started for outlet:', this.state.outlet);
+      
       try {
         const headers = {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
         };
         
+        // Load accounting books
+        console.log('📚 [POS] Fetching accounting books...');
+        const booksStart = performance.now();
         const booksRes = await fetch('{{ route("finance.accounting-books.data") }}?outlet_id=' + this.state.outlet, { headers });
+        const booksDuration = performance.now() - booksStart;
+        console.log(`⏱️ [POS] Books fetch: ${booksDuration.toFixed(2)}ms`);
+        
         const booksData = await booksRes.json();
         if (booksData.success) {
           this.books = booksData.data || [];
+          console.log('✅ [POS] Books loaded:', this.books.length);
         }
         
+        // Load chart of accounts
+        console.log('📊 [POS] Fetching chart of accounts...');
+        const accStart = performance.now();
         const accRes = await fetch('{{ route("finance.chart-of-accounts.data") }}?outlet_id=' + this.state.outlet, { headers });
+        const accDuration = performance.now() - accStart;
+        console.log(`⏱️ [POS] Accounts fetch: ${accDuration.toFixed(2)}ms`);
+        
         const accData = await accRes.json();
         if (accData.success) {
           const allAccounts = accData.data || [];
           this.accounts = allAccounts;
+          console.log('✅ [POS] Accounts loaded:', allAccounts.length);
           
           // Filter leaf accounts only (accounts without children)
           const leafAccounts = allAccounts.filter(account => {
@@ -679,13 +806,25 @@ function posApp() {
           };
         }
         
+        // Load COA settings
+        console.log('⚙️ [POS] Fetching COA settings...');
+        const settingsStart = performance.now();
         const settingsRes = await fetch('{{ route("admin.penjualan.pos.coa.settings") }}?outlet_id=' + this.state.outlet, { headers });
+        const settingsDuration = performance.now() - settingsStart;
+        console.log(`⏱️ [POS] Settings fetch: ${settingsDuration.toFixed(2)}ms`);
+        
         const settingsData = await settingsRes.json();
         if (settingsData.success && settingsData.data) {
           this.coaForm = settingsData.data;
+          console.log('✅ [POS] COA settings loaded');
         }
+        
+        const totalDuration = performance.now() - startTime;
+        console.log(`✅ [POS] loadCoaData() completed in ${totalDuration.toFixed(2)}ms`);
       } catch(e) {
-        console.error('Failed to load COA data:', e);
+        const totalDuration = performance.now() - startTime;
+        console.error(`❌ [POS] Failed to load COA data after ${totalDuration.toFixed(2)}ms:`, e);
+        console.error('❌ [POS] Error stack:', e.stack);
       }
     },
 

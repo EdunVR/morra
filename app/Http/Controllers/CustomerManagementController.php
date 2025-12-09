@@ -368,65 +368,7 @@ class CustomerManagementController extends Controller
         }
     }
 
-    /**
-     * Download Excel template
-     */
-    public function downloadTemplate()
-    {
-        try {
-            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-            $sheet = $spreadsheet->getActiveSheet();
 
-            // Header
-            $sheet->setCellValue('A1', 'kode_member');
-            $sheet->setCellValue('B1', 'nama');
-            $sheet->setCellValue('C1', 'telepon');
-            $sheet->setCellValue('D1', 'alamat');
-            $sheet->setCellValue('E1', 'tipe_customer');
-            $sheet->setCellValue('F1', 'outlet');
-
-            // Style header
-            $headerStyle = [
-                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-                'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4472C4']],
-                'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
-            ];
-            $sheet->getStyle('A1:F1')->applyFromArray($headerStyle);
-
-            // Auto width
-            foreach (range('A', 'F') as $col) {
-                $sheet->getColumnDimension($col)->setAutoSize(true);
-            }
-
-            // Sample data
-            $sheet->setCellValue('A2', '');
-            $sheet->setCellValue('B2', 'John Doe');
-            $sheet->setCellValue('C2', '08123456789');
-            $sheet->setCellValue('D2', 'Jl. Contoh No. 123');
-            $sheet->setCellValue('E2', 'Umum');
-            $sheet->setCellValue('F2', 'PBU');
-
-            // Add notes
-            $sheet->setCellValue('A4', 'CATATAN:');
-            $sheet->setCellValue('A5', '1. kode_member boleh dikosongkan (akan di-generate otomatis)');
-            $sheet->setCellValue('A6', '2. nama, telepon, tipe_customer, dan outlet wajib diisi');
-            $sheet->setCellValue('A7', '3. tipe_customer harus sesuai dengan data yang ada di sistem');
-            $sheet->setCellValue('A8', '4. outlet harus sesuai dengan nama outlet yang ada di sistem');
-            $sheet->getStyle('A4:A8')->getFont()->setItalic(true)->getColor()->setRGB('666666');
-
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-            
-            $fileName = 'template_import_pelanggan.xlsx';
-            $temp_file = tempnam(sys_get_temp_dir(), $fileName);
-            $writer->save($temp_file);
-
-            return response()->download($temp_file, $fileName)->deleteFileAfterSend(true);
-
-        } catch (\Exception $e) {
-            \Log::error('Error downloading template: ' . $e->getMessage());
-            return back()->with('error', 'Gagal download template');
-        }
-    }
 
     /**
      * Get customer statistics

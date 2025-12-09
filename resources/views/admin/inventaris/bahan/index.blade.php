@@ -7,13 +7,13 @@
         <p class="text-slate-600 text-sm">Kelola daftar bahan/material.</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        @hasPermission('inventaris.bahan.create')
+        @hasPermission('admin.inventaris.bahan.create')
         <button x-on:click="openCreate()" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700">
           <i class='bx bx-plus-circle text-lg'></i> Tambah Bahan
         </button>
         @endhasPermission
         
-        @hasPermission('inventaris.bahan.export')
+        @hasPermission('admin.inventaris.bahan.export')
         <button x-on:click="exportPdf()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 hover:bg-slate-50">
           <i class='bx bx-export text-lg'></i> Export PDF
         </button>
@@ -22,7 +22,7 @@
         </button>
         @endhasPermission
         
-        @hasPermission('inventaris.bahan.import')
+        @hasPermission('admin.inventaris.bahan.import')
         <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 hover:bg-slate-50 cursor-pointer">
           <i class='bx bx-import text-lg'></i><span>Import Excel</span>
           <input type="file" class="hidden" accept=".xlsx,.xls,.csv" x-on:change="importExcel($event)">
@@ -125,12 +125,12 @@
               <button x-on:click.prevent="showHargaBeli(m)" class="flex-1 rounded-lg bg-emerald-600 text-white px-3 py-2 hover:bg-emerald-700 text-sm">
                 <i class='bx bx-show'></i> Harga Beli
               </button>
-              @hasPermission('inventaris.bahan.update')
+              @hasPermission('admin.inventaris.bahan.update')
               <button x-on:click="openEdit(m)" class="flex-1 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50 text-sm">
                 <i class='bx bx-edit-alt'></i> Edit
               </button>
               @endhasPermission
-              @hasPermission('inventaris.bahan.delete')
+              @hasPermission('admin.inventaris.bahan.delete')
               <button x-on:click="confirmDelete(m)" class="flex-1 rounded-lg border border-red-200 text-red-700 px-3py-2 hover:bg-red-50 text-sm">
                 <i class='bx bx-trash'></i> Hapus
               </button>
@@ -178,12 +178,12 @@
                     <button x-on:click.prevent="showHargaBeli(m)" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 hover:bg-emerald-700 text-sm">
                       <i class='bx bx-show'></i> Harga Beli
                     </button>
-                    @hasPermission('inventaris.bahan.update')
+                    @hasPermission('admin.inventaris.bahan.update')
                     <button x-on:click="openEdit(m)" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">
                       <i class='bx bx-edit-alt'></i>
                     </button>
                     @endhasPermission
-                    @hasPermission('inventaris.bahan.delete')
+                    @hasPermission('admin.inventaris.bahan.delete')
                     <button x-on:click="confirmDelete(m)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-700 px-3 py-1.5 hover:bg-red-50">
                       <i class='bx bx-trash'></i>
                     </button>
@@ -681,7 +681,7 @@
           // Jika harga_bahan belum ada atau kosong, fetch ulang dari server
           if (!hargaBahan || hargaBahan.length === 0) {
             try {
-              const response = await fetch(`{{ url('admin/inventaris/bahan') }}/${bahan.id}/edit`);
+              const response = await fetch(`{{ route('admin.inventaris.bahan.edit', '') }}/${bahan.id}`);
               const data = await response.json();
               hargaBahan = data.harga_bahan || [];
               console.log('Fetched from server:', hargaBahan);

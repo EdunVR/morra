@@ -77,14 +77,9 @@
               <span>Export ke XLSX</span>
             </button>
             <button @click="exportPdf(); exportOpen = false" 
-                    class="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 border-t border-slate-100">
+                    class="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 rounded-b-xl border-t border-slate-100">
               <i class='bx bxs-file-pdf text-red-600'></i>
               <span>Export ke PDF</span>
-            </button>
-            <button @click="downloadTemplate(); exportOpen = false" 
-                    class="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 rounded-b-xl border-t border-slate-100">
-              <i class='bx bx-download text-blue-600'></i>
-              <span>Download Template</span>
             </button>
           </div>
         </div>
@@ -592,10 +587,6 @@
 
         exportPdf() {
           window.location.href = `{{ route('admin.crm.pelanggan.export.pdf') }}?outlet_filter=${this.filters.outlet}&tipe_filter=${this.filters.tipe}`;
-        },
-
-        downloadTemplate() {
-          window.location.href = '{{ route("admin.crm.pelanggan.download-template") }}';
         },
 
         importExcel(event) {

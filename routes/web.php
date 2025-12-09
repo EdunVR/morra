@@ -209,6 +209,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('bahan/download-template', [BahanController::class, 'downloadTemplate'])->name('bahan.download-template');
         Route::get('bahan/outlets', [BahanController::class, 'getOutlets'])->name('bahan.outlets');
         Route::get('bahan/satuan', [BahanController::class, 'getSatuan'])->name('bahan.satuan');
+        Route::get('bahan/{id}/edit-harga', [BahanController::class, 'editHarga'])->name('bahan.edit_harga');
+        Route::put('bahan/harga/{id}', [BahanController::class, 'updateHarga'])->name('bahan.update_harga');
+        Route::delete('bahan/{id}/destroy-harga', [BahanController::class, 'destroyHarga'])->name('bahan.destroy_harga');
         Route::resource('bahan', BahanController::class);
 
         // Sparepart Routes
@@ -288,8 +291,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             ->middleware('permission:crm.pelanggan.export')->name('pelanggan.export.pdf');
         Route::post('pelanggan/import/excel', [CustomerManagementController::class, 'importExcel'])
             ->middleware('permission:crm.pelanggan.import')->name('pelanggan.import.excel');
-        Route::get('pelanggan/download-template', [CustomerManagementController::class, 'downloadTemplate'])
-            ->name('pelanggan.download-template');
         Route::post('pelanggan', [CustomerManagementController::class, 'store'])
             ->middleware('permission:crm.pelanggan.create')->name('pelanggan.store');
         Route::put('pelanggan/{id}', [CustomerManagementController::class, 'update'])

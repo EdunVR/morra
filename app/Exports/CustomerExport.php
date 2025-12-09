@@ -7,9 +7,12 @@ use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-class CustomerExport implements FromCollection, WithHeadings, WithMapping, WithStyles
+class CustomerExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths
 {
     protected $outletFilter;
     protected $tipeFilter;
@@ -22,7 +25,7 @@ class CustomerExport implements FromCollection, WithHeadings, WithMapping, WithS
 
     public function collection()
     {
-        $query = Member::with(['tipe', 'outlet'])->withTotalPiutang();
+        $query = Member::with(['tipe', 'outlet']);
 
         if ($this->outletFilter !== 'all') {
             $query->where('id_outlet', $this->outletFilter);
@@ -32,44 +35,62 @@ class CustomerExport implements FromCollection, WithHeadings, WithMapping, WithS
             $query->where('id_tipe', $this->tipeFilter);
         }
 
-        return $query->get();
+        return $query->orderBy('nama', 'asc')->get();
     }
 
     public function headings(): array
     {
         return [
-            'No',
-            'Kode Member',
-            'Nama',
-            'Telepon',
-            'Alamat',
-            'Tipe Customer',
-            'Outlet',
-            'Total Piutang',
+            'kode_member',
+            'nama',
+            'telepon',
+            'alamat',
+            'tipe_customer',
+            'outlet',
         ];
     }
 
     public function map($member): array
     {
-        static $no = 0;
-        $no++;
-
         return [
-            $no,
-            $member->getMemberCodeWithPrefix() ?? $member->kode_member ?? '-',
+            $member->kode_member ?? '',
             $member->nama,
             $member->telepon,
-            $member->alamat,
-            $member->tipe ? $member->tipe->nama_tipe : '-',
-            $member->outlet ? $member->outlet->nama : '-',
-            'Rp ' . number_format($member->total_piutang ?? 0, 0, ',', '.'),
+            $member->alamat ?? '',
+            $member->tipe ? $member->tipe->nama_tipe : '',
+            $member->outlet ? $member->outlet->nama_outlet : '',
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
+        // Style header row
+        $sheet->getStyle('A1:F1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '4472C4'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+            ],
+        ]);
+
+        return [];
+    }
+
+    public function columnWidths(): array
+    {
         return [
-            1 => ['font' => ['bold' => true]],
+            'A' => 15,  // kode_member
+            'B' => 25,  // nama
+            'C' => 15,  // telepon
+            'D' => 35,  // alamat
+            'E' => 20,  // tipe_customer
+            'F' => 15,  // outlet
         ];
     }
 }

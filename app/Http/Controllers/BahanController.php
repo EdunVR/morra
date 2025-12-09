@@ -119,13 +119,13 @@ class BahanController extends Controller
             ->addColumn('aksi', function ($bahan) {
                 return '
                 <div class="flex justify-end gap-2">
-                    <button onclick="showDetail(`'. route('bahan.show', $bahan->id_bahan) .'`)" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 hover:bg-emerald-700 text-sm">
+                    <button onclick="showDetail(`'. route('admin.inventaris.bahan.show', $bahan->id_bahan) .'`)" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 hover:bg-emerald-700 text-sm">
                         <i class="bx bx-show"></i> Harga Beli
                     </button>
-                    <button onclick="editForm(`'. route('bahan.update', $bahan->id_bahan) .'`)" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">
+                    <button onclick="editForm(`'. route('admin.inventaris.bahan.update', $bahan->id_bahan) .'`)" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">
                         <i class="bx bx-edit-alt"></i> Edit
                     </button>
-                    <button onclick="deleteData(`'. route('bahan.destroy', $bahan->id_bahan) .'`)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-700 px-3 py-1.5 hover:bg-red-50">
+                    <button onclick="deleteData(`'. route('admin.inventaris.bahan.destroy', $bahan->id_bahan) .'`)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-700 px-3 py-1.5 hover:bg-red-50">
                         <i class="bx bx-trash"></i> Hapus
                     </button>
                 </div>
@@ -187,8 +187,8 @@ class BahanController extends Controller
                 return $detail->stok;
             })
             ->addColumn('aksi', function ($detail) {
-                $updateUrl = $detail->id ? route('bahan.edit_harga', $detail->id) : '#';
-                $deleteUrl = $detail->id ? route('bahan.destroy_harga', $detail->id) : '#';
+                $updateUrl = $detail->id ? route('admin.inventaris.bahan.edit_harga', $detail->id) : '#';
+                $deleteUrl = $detail->id ? route('admin.inventaris.bahan.destroy_harga', $detail->id) : '#';
             
                 return '
                 <div class="btn-group">
