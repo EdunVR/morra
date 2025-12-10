@@ -12,10 +12,12 @@
       </div>
 
       <div class="flex flex-wrap gap-2">
+        @hasPermission('crm.tipe.create')
         <button @click="openCreateModal()" 
                 class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 h-10 hover:bg-primary-700">
           <i class='bx bx-plus'></i> Tambah Tipe
         </button>
+        @endhasPermission
       </div>
     </div>
 

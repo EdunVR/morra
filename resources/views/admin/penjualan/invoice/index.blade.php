@@ -17,9 +17,11 @@
             <option :value="outlet.id_outlet" x-text="outlet.nama_outlet"></option>
         </template>
         </select>
+        @hasPermission('sales.invoice.create')
         <button @click="openCreateInvoice()" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 h-10 hover:bg-emerald-700">
           <i class='bx bx-plus'></i>Invoice Baru
         </button>
+        @endhasPermission
         <button @click="openInvoiceSetting()" class="inline-flex items-center gap-2 rounded-xl bg-amber-500 text-white px-4 h-10 hover:bg-amber-600">
           <i class='bx bx-cog'></i> Set Nomor Invoice
         </button>

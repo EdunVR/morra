@@ -4,18 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\Sparepart;
 use App\Models\SparepartLog;
+use App\Models\Outlet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
+use App\Traits\HasOutletFilter;
 
 class SparepartController extends Controller
 {
+    use HasOutletFilter;
     /**
      * Display sparepart page
      */
     public function index()
     {
-        return view('admin.inventaris.sparepart.index');
+        $outlets = $this->getAccessibleOutlets();
+        return view('admin.inventaris.sparepart.index', compact('outlets'));
     }
 
     /**
@@ -23,7 +27,25 @@ class SparepartController extends Controller
      */
     public function getData(Request $request)
     {
-        $query = Sparepart::query();
+        $outletId = $request->get('outlet_id');
+        
+        // Validate outlet access
+        if ($outletId && !$this->isSuperAdmin()) {
+            $this->validateOutletAccess($outletId);
+        }
+        
+        $query = Sparepart::with('outlet');
+        
+        // Filter by accessible outlets
+        if (!$this->isSuperAdmin()) {
+            $accessibleOutletIds = $this->getAccessibleOutletIds();
+            $query->whereIn('outlet_id', $accessibleOutletIds);
+        }
+        
+        // Filter by specific outlet if provided
+        if ($outletId) {
+            $query->where('outlet_id', $outletId);
+        }
 
         return DataTables::of($query)
             ->addIndexColumn()
@@ -72,6 +94,7 @@ class SparepartController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'outlet_id' => 'required|exists:outlets,id_outlet',
             'kode_sparepart' => 'required|string|max:50|unique:spareparts,kode_sparepart',
             'nama_sparepart' => 'required|string|max:255',
             'merk' => 'nullable|string|max:100',
@@ -83,9 +106,15 @@ class SparepartController extends Controller
             'keterangan' => 'nullable|string'
         ]);
 
+        // Validate outlet access
+        if (!$this->isSuperAdmin()) {
+            $this->validateOutletAccess($request->outlet_id);
+        }
+
         try {
             DB::transaction(function () use ($request) {
                 $sparepart = Sparepart::create([
+                    'outlet_id' => $request->outlet_id,
                     'kode_sparepart' => $request->kode_sparepart,
                     'nama_sparepart' => $request->nama_sparepart,
                     'merk' => $request->merk,

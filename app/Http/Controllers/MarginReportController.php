@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\Penjualan;
 use App\Models\PenjualanDetail;
 use App\Models\PosSale;
@@ -14,6 +16,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class MarginReportController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     public function index()
     {
         $outlets = Outlet::where('is_active', true)->get();

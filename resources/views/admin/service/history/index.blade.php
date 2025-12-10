@@ -20,9 +20,11 @@
                 <button x-on:click="exportData()" class="inline-flex items-center gap-2 rounded-xl bg-green-600 text-white px-4 py-2 hover:bg-green-700">
                     <i class='bx bx-export text-lg'></i> Export Excel
                 </button>
+                @hasPermission('service.invoice.create')
                 <a href="{{ route('admin.service.invoice.index') }}" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700">
                     <i class='bx bx-plus-circle text-lg'></i> Buat Invoice Baru
                 </a>
+                @endhasPermission
             </div>
         </div>
 

@@ -16,9 +16,11 @@
           </template>
         </select>
 
+        @hasPermission('finance.akun.create')
         <button @click="openCreateAccount()" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 h-10 hover:bg-emerald-700">
           <i class='bx bx-plus'></i> Tambah Akun
         </button>
+        @endhasPermission
         <button @click="exportAccounts()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 h-10 hover:bg-slate-50">
           <i class='bx bx-export'></i> Export
         </button>
@@ -317,14 +319,17 @@
                                 title="Lihat Detail Saldo">
                         <i class="bx bx-show text-lg"></i>
                         </button>
+                      @hasPermission('finance.akun.edit')
                       <button @click="editAccount(account)" class="text-green-600 hover:text-green-800" title="Edit">
                         <i class="bx bx-edit"></i>
                       </button>
+                      @endhasPermission
                       <button @click="toggleAccount(account.id, account.status)" 
                               :class="account.status === 'active' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'"
                               :title="account.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'">
                         <i :class="account.status === 'active' ? 'bx bx-power-off' : 'bx bx-check-circle'"></i>
                       </button>
+                      @hasPermission('finance.akun.delete')
                       <button @click="deleteAccount(account)" 
                                         class="text-red-600 hover:text-red-800 p-1 rounded"
                                         :class="account.children && account.children.length > 0 ? 'opacity-50 cursor-not-allowed' : ''"
@@ -332,6 +337,7 @@
                                         :disabled="account.children && account.children.length > 0">
                                     <i class="bx bx-trash text-lg"></i>
                                 </button>
+                      @endhasPermission
                     </div>
                   </td>
                 </tr>

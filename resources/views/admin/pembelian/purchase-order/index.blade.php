@@ -24,10 +24,12 @@
       </div>
 
       <div class="flex flex-wrap gap-2">
+        @hasPermission('procurement.purchase-order.create')
         <button @click="openCreatePurchaseOrder()" 
                 class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 h-10 hover:bg-emerald-700">
             <i class='bx bx-plus'></i> Buat Permintaan Pembelian
         </button>
+        @endhasPermission
         <button @click="openPOSetting()" 
                 class="inline-flex items-center gap-2 rounded-xl bg-amber-500 text-white px-4 h-10 hover:bg-amber-600">
           <i class='bx bx-cog'></i> Setting Nomor PO
@@ -420,11 +422,13 @@
                 </button>
                 
                 <!-- Edit button -->
+                @can('procurement.purchase-order.update')
                 <template x-if="['permintaan_pembelian', 'request_quotation'].includes(po.status)">
                     <button @click="editPurchaseOrder(po)" class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-slate-200 hover:bg-slate-50">
                         <i class='bx bx-edit text-xs'></i> Edit
                     </button>
                 </template>
+                @endcan
 
                 <!-- Status Progression Actions -->
                 <template x-if="po.status === 'permintaan_pembelian'">
@@ -589,11 +593,13 @@
                                     <i class='bx bx-printer text-xs'></i>
                                 </button>
                                 
+                                @can('procurement.purchase-order.update')
                                 <template x-if="['permintaan_pembelian', 'request_quotation'].includes(po.status)">
                                     <button @click="editPurchaseOrder(po)" class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-100 text-blue-700 hover:bg-blue-200">
                                         <i class='bx bx-edit text-xs'></i>
                                     </button>
                                 </template>
+                                @endcan
 
                                 <!-- Invoice Button - Selalu tampil kecuali dibatalkan -->
                                 <template x-if="po.status !== 'dibatalkan'">

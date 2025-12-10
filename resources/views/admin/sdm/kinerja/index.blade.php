@@ -7,9 +7,11 @@
         <p class="text-slate-600 text-sm">Kelola penilaian kinerja karyawan</p>
       </div>
       <div class="flex flex-wrap gap-2">
+        @hasPermission('hrm.kinerja.create')
         <button x-on:click="openCreate()" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700">
           <i class='bx bx-plus-circle text-lg'></i> Tambah Penilaian
         </button>
+        @endhasPermission
         <button x-on:click="exportPdf()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 hover:bg-slate-50">
           <i class='bx bx-export text-lg'></i> Export PDF
         </button>

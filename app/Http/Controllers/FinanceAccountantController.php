@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\ChartOfAccount;
 use App\Models\Outlet;
 use Illuminate\Http\Request;
@@ -24,6 +26,8 @@ use Log;
 
 class FinanceAccountantController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
 
     public function jurnalIndex(Request $request)
     {
@@ -410,9 +414,7 @@ class FinanceAccountantController extends Controller
     public function getOutlets(Request $request): JsonResponse
     {
         try {
-            $outlets = Outlet::active()
-                ->orderBy('nama_outlet')
-                ->get(['id_outlet', 'kode_outlet', 'nama_outlet']);
+            $outlets = $this->getAccessibleOutlets();
 
             return response()->json([
                 'success' => true,
@@ -3539,15 +3541,35 @@ public function openingBalanceData(Request $request): JsonResponse
                 'created_by' => auth()->id()
             ]);
 
-            // Get or create accounting book for fixed assets
-            // Try to find general book first, if not found, use any active book
-            $book = AccountingBook::where('outlet_id', $request->outlet_id)
-                ->where('status', 'active')
-                ->where(function($query) {
-                    $query->where('type', 'general')
-                          ->orWhere('type', 'inventory'); // Allow inventory book as fallback
-                })
-                ->first();
+            // Get accounting book for fixed assets
+            // Priority: 1. book_id from request, 2. general book, 3. any active book
+            $book = null;
+            
+            // First, try to use book_id from request if provided
+            if ($request->filled('book_id')) {
+                $book = AccountingBook::where('id', $request->book_id)
+                    ->where('outlet_id', $request->outlet_id)
+                    ->where('status', 'active')
+                    ->first();
+                    
+                if (!$book) {
+                    \Log::warning('Requested book_id not found or not active', [
+                        'book_id' => $request->book_id,
+                        'outlet_id' => $request->outlet_id
+                    ]);
+                }
+            }
+            
+            // If no book from request, try to find general book first
+            if (!$book) {
+                $book = AccountingBook::where('outlet_id', $request->outlet_id)
+                    ->where('status', 'active')
+                    ->where(function($query) {
+                        $query->where('type', 'general')
+                              ->orWhere('type', 'inventory'); // Allow inventory book as fallback
+                    })
+                    ->first();
+            }
 
             // If still not found, try any active book
             if (!$book) {
@@ -3559,6 +3581,7 @@ public function openingBalanceData(Request $request): JsonResponse
             if (!$book) {
                 \Log::error('No active accounting book found', [
                     'outlet_id' => $request->outlet_id,
+                    'book_id_requested' => $request->book_id,
                     'available_books' => AccountingBook::where('outlet_id', $request->outlet_id)->get()->toArray()
                 ]);
                 
@@ -3567,6 +3590,12 @@ public function openingBalanceData(Request $request): JsonResponse
                     'message' => 'Tidak ada buku akuntansi aktif untuk outlet ini. Silakan buat buku akuntansi terlebih dahulu.'
                 ], 422);
             }
+            
+            \Log::info('Using accounting book for fixed asset', [
+                'book_id' => $book->id,
+                'book_name' => $book->name,
+                'outlet_id' => $book->outlet_id
+            ]);
 
             // Generate transaction number
             $transactionNumber = 'FA-ACQ-' . $fixedAsset->code;

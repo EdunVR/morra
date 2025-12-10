@@ -674,8 +674,9 @@ Route::prefix('finance')->name('finance.')->group(function () {
         Route::get('export/pdf', [FinanceAccountantController::class, 'exportGeneralLedgerPDF'])->name('export.pdf');
     });
     
-    // Profit & Loss Routes
+    // Profit & Loss Routes (Laporan Laba Rugi)
     Route::get('profit-loss', [FinanceAccountantController::class, 'profitLossIndex'])->name('profit-loss.index');
+    Route::get('laba-rugi', [FinanceAccountantController::class, 'profitLossIndex'])->name('laba-rugi.index'); // Alias
     Route::get('profit-loss/data', [FinanceAccountantController::class, 'profitLossData'])->name('profit-loss.data');
     Route::get('profit-loss/stats', [FinanceAccountantController::class, 'profitLossStats'])->name('profit-loss.stats');
     Route::get('profit-loss/account-details', [FinanceAccountantController::class, 'profitLossAccountDetails'])->name('profit-loss.account-details');
@@ -703,6 +704,7 @@ Route::prefix('finance')->name('finance.')->group(function () {
     Route::view('/aktiva-tetap', 'admin.finance.aktiva-tetap.index')->name('aktiva.index');
     Route::view('/buku-besar', 'admin.finance.buku-besar.index')->name('buku-besar.index');
     Route::get('cashflow', [\App\Http\Controllers\CashFlowController::class, 'index'])->name('cashflow.index');
+    Route::get('arus-kas', [\App\Http\Controllers\CashFlowController::class, 'index'])->name('arus-kas.index'); // Alias
     Route::get('cashflow/data', [\App\Http\Controllers\CashFlowController::class, 'getData'])->name('cashflow.data');
     Route::get('cashflow/account-details/{id}', [\App\Http\Controllers\CashFlowController::class, 'getAccountDetails'])->name('cashflow.account-details');
     Route::get('cashflow/item-details', [\App\Http\Controllers\CashFlowController::class, 'getItemDetails'])->name('cashflow.item-details');

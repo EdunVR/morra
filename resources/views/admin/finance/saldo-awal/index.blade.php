@@ -10,11 +10,13 @@
       </div>
 
       <div class="flex flex-wrap gap-2">
+        @hasPermission('finance.saldo-awal.create')
         <button @click="openCreateBalance()" 
                 :disabled="!filters.outlet || !filters.book"
                 class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 h-10 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed">
           <i class='bx bx-plus'></i> Tambah Saldo
         </button>
+        @endhasPermission
         <button @click="postBalances()" 
                 :disabled="!filters.outlet || !filters.book"
                 class="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 h-10 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed">

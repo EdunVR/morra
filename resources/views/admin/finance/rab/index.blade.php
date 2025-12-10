@@ -14,10 +14,12 @@
           <input x-model="q" placeholder="Cari nama, deskripsi, status…"
                  class="w-64 pl-10 pr-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary-200">
         </div>
+        @hasPermission('finance.rab.create')
         <button @click="openForm()"
           class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700">
           <i class='bx bx-plus-circle text-lg'></i> Tambah RAB
         </button>
+        @endhasPermission
         <button @click="exportJson()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 hover:bg-slate-50">
           <i class='bx bx-export text-lg'></i> Export
         </button>
@@ -142,17 +144,21 @@
                   <button @click.stop="openView(r)" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 hover:bg-slate-50">
                     <i class='bx bx-show'></i><span class="text-sm">Lihat</span>
                   </button>
+                  @hasPermission('finance.rab.edit')
                   <button @click.stop="edit(r)" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 hover:bg-slate-50">
                     <i class='bx bx-edit'></i><span class="text-sm">Edit</span>
                   </button>
+                  @endhasPermission
                   <template x-if="canInputRealisasi(r)">
                     <button @click.stop="openRealisasi(r)" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 text-emerald-700 px-2 py-1.5 hover:bg-emerald-50">
                       <i class='bx bx-money'></i><span class="text-sm">Realisasi</span>
                     </button>
                   </template>
+                  @hasPermission('finance.rab.delete')
                   <button @click.stop="askDelete(r)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-700 px-2 py-1.5 hover:bg-red-50">
                     <i class='bx bx-trash'></i><span class="text-sm">Hapus</span>
                   </button>
+                  @endhasPermission
                 </div>
               </td>
             </tr>

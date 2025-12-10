@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
 use App\Models\Produk;
@@ -21,6 +23,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class PosController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     protected $journalService;
 
     public function __construct(JournalEntryService $journalService)

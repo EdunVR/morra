@@ -74,4 +74,49 @@ class ChartOfAccount extends Model
     {
         return $query->whereNull('parent_id');
     }
+
+    /**
+     * Update account balance
+     * 
+     * @param float $amount Positive for increase, negative for decrease
+     * @return bool
+     */
+    public function updateBalance($amount)
+    {
+        // Update balance based on account type
+        // For asset and expense accounts: debit increases, credit decreases
+        // For liability, equity, and revenue accounts: credit increases, debit decreases
+        
+        $currentBalance = $this->balance ?? 0;
+        
+        if (in_array($this->type, ['asset', 'expense'])) {
+            // Debit increases balance
+            $newBalance = $currentBalance + $amount;
+        } else {
+            // Credit increases balance (liability, equity, revenue)
+            $newBalance = $currentBalance - $amount;
+        }
+        
+        return $this->update(['balance' => $newBalance]);
+    }
+
+    /**
+     * Get current balance
+     * 
+     * @return float
+     */
+    public function getCurrentBalance()
+    {
+        return $this->balance ?? 0;
+    }
+
+    /**
+     * Reset balance to zero
+     * 
+     * @return bool
+     */
+    public function resetBalance()
+    {
+        return $this->update(['balance' => 0]);
+    }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\Supplier;
 use App\Models\Produk;
 use App\Models\PurchaseOrder;
@@ -28,6 +30,8 @@ use App\Models\Bahan;
 
 class PurchaseManagementController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     protected $journalService;
 
     public function __construct(JournalEntryService $journalService)

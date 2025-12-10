@@ -10,9 +10,11 @@
         <button x-on:click="openSetWorkHours()" class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-4 py-2 hover:bg-indigo-700">
           <i class='bx bx-time-five text-lg'></i> Set Jam Kerja
         </button>
+        @hasPermission('hrm.absensi.create')
         <button x-on:click="openCreate()" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700">
           <i class='bx bx-plus-circle text-lg'></i> Tambah Absensi
         </button>
+        @endhasPermission
       </div>
     </div>
 
@@ -152,6 +154,7 @@
               class="flex-1 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700 inline-flex items-center justify-center gap-2">
               <i class='bx bx-search'></i> Filter
             </button>
+            @can('hrm.absensi.export')
             <button 
               x-on:click="exportPdf()" 
               class="flex-1 rounded-xl border border-red-600 text-red-700 px-4 py-2 hover:bg-red-50 inline-flex items-center justify-center gap-2">
@@ -163,6 +166,7 @@
               class="flex-1 rounded-xl border border-emerald-600 text-emerald-700 px-4 py-2 hover:bg-emerald-50 inline-flex items-center justify-center gap-2">
               <i class='bx bxs-file'></i> Export Excel
             </button>
+            @endcan
           </div>
         </div>
       </div>
@@ -257,16 +261,20 @@
                       x-text="overtime > 0 ? overtime + ' mnt' : '-'"></td>
                   <td class="px-4 py-3">
                     <div class="flex gap-2 justify-center">
+                      @can('hrm.absensi.edit')
                       <button 
                         x-on:click="openEdit(item.id)" 
                         class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">
                         <i class='bx bx-edit-alt'></i>
                       </button>
+                      @endcan
+                      @can('hrm.absensi.delete')
                       <button 
                         x-on:click="confirmDelete(item.id)" 
                         class="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-700 px-3 py-1.5 hover:bg-red-50">
                         <i class='bx bx-trash'></i>
                       </button>
+                      @endcan
                     </div>
                   </td>
                 </tr>

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\BankReconciliation;
 use App\Models\BankReconciliationItem;
 use App\Models\CompanyBankAccount;
@@ -17,6 +19,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class BankReconciliationController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     public function index()
     {
         return view('admin.finance.rekonsiliasi.index');

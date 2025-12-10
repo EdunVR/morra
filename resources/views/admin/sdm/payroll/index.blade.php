@@ -11,10 +11,12 @@
                     <i class='bx bx-cog'></i>
                     <span>Setting COA</span>
                 </a>
+                @hasPermission('hrm.payroll.create')
                 <button onclick="openAddModal()" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2">
                     <i class='bx bx-plus'></i>
                     <span>Tambah Payroll</span>
                 </button>
+                @endhasPermission
             </div>
         </div>
 
@@ -469,15 +471,21 @@
                 let actions = '';
                 if (p.status === 'draft') {
                     actions = `
+                        @hasPermission('hrm.payroll.edit')
                         <button onclick="editPayroll(${p.id})" class="px-2 py-1 text-blue-600 hover:bg-blue-50 rounded" title="Edit">
                             <i class='bx bx-edit'></i>
                         </button>
+                        @endhasPermission
+                        @hasPermission('hrm.payroll.approve')
                         <button onclick="approvePayroll(${p.id})" class="px-2 py-1 text-green-600 hover:bg-green-50 rounded" title="Approve">
                             <i class='bx bx-check'></i>
                         </button>
+                        @endhasPermission
+                        @hasPermission('hrm.payroll.delete')
                         <button onclick="deletePayroll(${p.id})" class="px-2 py-1 text-red-600 hover:bg-red-50 rounded" title="Hapus">
                             <i class='bx bx-trash'></i>
                         </button>
+                        @endhasPermission
                     `;
                 } else if (p.status === 'approved') {
                     actions = `

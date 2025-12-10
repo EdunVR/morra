@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Events\MessageSent;
 use App\Models\Message;
 use App\Models\User;
@@ -17,6 +19,8 @@ use Illuminate\View\View;
 
 class ChatController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     /**
      * Display the chat panel view
      */

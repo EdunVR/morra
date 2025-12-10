@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\ServiceInvoice;
 use App\Models\ServiceInvoiceItem;
 use App\Models\MesinCustomer;
@@ -20,6 +22,8 @@ use Carbon\Carbon;
 
 class ServiceController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     /**
      * Display invoice service page
      */

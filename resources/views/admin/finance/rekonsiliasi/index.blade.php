@@ -10,9 +10,11 @@
       </div>
 
       <div class="flex flex-wrap gap-2">
+        @hasPermission('finance.rekonsiliasi.create')
         <button @click="openCreateModal()" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 h-10 text-white hover:bg-primary-700">
           <i class='bx bx-plus'></i> Buat Rekonsiliasi
         </button>
+        @endhasPermission
         <button @click="refreshData()" :disabled="isLoading" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 h-10 hover:bg-slate-50 disabled:opacity-50">
           <i class='bx bx-refresh' :class="{'animate-spin': isLoading}"></i> Refresh
         </button>
@@ -159,9 +161,11 @@
                     <button @click="viewDetail(recon.id)" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">
                       <i class='bx bx-show'></i> Detail
                     </button>
+                    @hasPermission('finance.rekonsiliasi.edit')
                     <button x-show="recon.status === 'draft'" @click="editReconciliation(recon.id)" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium">
                       <i class='bx bx-edit'></i> Edit
                     </button>
+                    @endhasPermission
                     <button x-show="recon.status === 'draft'" @click="completeReconciliation(recon.id)" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 text-xs font-medium">
                       <i class='bx bx-check'></i> Selesai
                     </button>
@@ -171,9 +175,11 @@
                     <button @click="exportPdf(recon.id)" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">
                       <i class='bx bxs-file-pdf'></i> PDF
                     </button>
+                    @hasPermission('finance.rekonsiliasi.delete')
                     <button x-show="recon.status !== 'approved'" @click="deleteReconciliation(recon.id)" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">
                       <i class='bx bx-trash'></i>
                     </button>
+                    @endhasPermission
                   </div>
                 </td>
               </tr>

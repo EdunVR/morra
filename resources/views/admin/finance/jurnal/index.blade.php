@@ -16,9 +16,11 @@
           </template>
         </select>
 
+        @hasPermission('finance.jurnal.create')
         <button @click="openCreateJournal()" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 h-10 hover:bg-emerald-700">
           <i class='bx bx-plus'></i> Buat Jurnal
         </button>
+        @endhasPermission
         
         {{-- Export Dropdown --}}
         <div x-data="{ exportOpen: false }" class="relative">
@@ -294,6 +296,7 @@
                                               title="Lihat Detail">
                                           <i class="bx bx-show text-lg"></i>
                                       </button>
+                                      @hasPermission('finance.jurnal.edit')
                                       <button @click="editJournal(journal)" 
                                               :disabled="journal.status !== 'draft'"
                                               :class="journal.status !== 'draft' ? 'text-slate-400 cursor-not-allowed' : 'text-green-600 hover:text-green-800'"
@@ -301,12 +304,14 @@
                                               title="Edit">
                                           <i class="bx bx-edit text-lg"></i>
                                       </button>
+                                      @endhasPermission
                                       <button @click="postJournal(journal.id)" 
                                               x-show="journal.status === 'draft' && journal.balance === 0"
                                               class="text-purple-600 hover:text-purple-800 p-1 rounded" 
                                               title="Posting">
                                           <i class="bx bx-check text-lg"></i>
                                       </button>
+                                      @hasPermission('finance.jurnal.delete')
                                       <button @click="deleteJournal(journal.id)" 
                                               :disabled="journal.status !== 'draft'"
                                               :class="journal.status !== 'draft' ? 'text-slate-400 cursor-not-allowed' : 'text-red-600 hover:text-red-800'"
@@ -314,6 +319,7 @@
                                               title="Hapus">
                                           <i class="bx bx-trash text-lg"></i>
                                       </button>
+                                      @endhasPermission
                                   </div>
                               </td>
                           </tr>

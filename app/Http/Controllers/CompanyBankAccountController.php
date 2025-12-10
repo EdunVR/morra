@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\CompanyBankAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class CompanyBankAccountController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     public function index(Request $request)
     {
         $outletId = $request->get('outlet_id', auth()->user()->outlet_id ?? 1);

@@ -13,6 +13,7 @@ class Sparepart extends Model
     protected $primaryKey = 'id_sparepart';
     
     protected $fillable = [
+        'outlet_id',
         'kode_sparepart',
         'nama_sparepart',
         'merk',
@@ -32,10 +33,25 @@ class Sparepart extends Model
         'is_active' => 'boolean'
     ];
 
+    // Relationship
+    public function outlet()
+    {
+        return $this->belongsTo(Outlet::class, 'outlet_id', 'id_outlet');
+    }
+
     // Scope untuk sparepart aktif
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    // Scope untuk filter by outlet
+    public function scopeByOutlet($query, $outletId)
+    {
+        if ($outletId) {
+            return $query->where('outlet_id', $outletId);
+        }
+        return $query;
     }
 
     // Scope untuk stok tersedia

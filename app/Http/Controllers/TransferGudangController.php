@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use Illuminate\Http\Request;
 use App\Models\PermintaanPengiriman;
 use App\Models\Outlet;
@@ -16,6 +18,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class TransferGudangController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     /**
      * Menampilkan halaman transfer gudang
      */

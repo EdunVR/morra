@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\Tipe;
 use App\Models\Outlet;
 use App\Models\ProdukTipe;
@@ -12,6 +14,8 @@ use Illuminate\Support\Facades\Validator;
 
 class CustomerTypeController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     /**
      * Display customer type management page
      */

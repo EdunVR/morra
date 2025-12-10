@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\Attendance;
 use App\Models\Recruitment;
 use App\Models\WorkSchedule;
@@ -15,6 +17,8 @@ use Carbon\Carbon;
 
 class AttendanceManagementController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
 
     public function index()
     {

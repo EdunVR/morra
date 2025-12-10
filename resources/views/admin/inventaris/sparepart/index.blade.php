@@ -8,9 +8,12 @@
                 <h1 class="text-xl sm:text-2xl font-bold">Master Sparepart</h1>
                 <p class="text-slate-600 text-sm">Kelola data sparepart dan stok</p>
             </div>
+            @hasPermission('inventaris.sparepart.create')
+            
             <button x-on:click="openAddModal()" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700">
                 <i class='bx bx-plus-circle text-lg'></i> Tambah Sparepart
             </button>
+           @endhasPermission
         </div>
 
         <!-- Stats Cards -->

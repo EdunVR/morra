@@ -13,9 +13,11 @@
                 <a href="{{ route('sdm.kontrak.export.kontrak.pdf') }}" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
                     <i class="fas fa-file-pdf mr-2"></i>Export PDF
                 </a>
+                @hasPermission('hrm.kontrak.create')
                 <a href="{{ route('sdm.kontrak.kontrak.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                     <i class="fas fa-plus mr-2"></i>Tambah Kontrak
                 </a>
+                @endhasPermission
             </div>
         </div>
 

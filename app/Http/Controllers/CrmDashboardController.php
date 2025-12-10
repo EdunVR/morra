@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\Member;
 use App\Models\Penjualan;
 use App\Models\Piutang;
@@ -12,9 +14,11 @@ use Carbon\Carbon;
 
 class CrmDashboardController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     public function index()
     {
-        $outlets = Outlet::all();
+        $outlets = $this->getAccessibleOutlets();
         return view('admin.crm.index', compact('outlets'));
     }
 

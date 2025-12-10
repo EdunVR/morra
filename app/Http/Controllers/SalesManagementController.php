@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\Member;
 use App\Models\Produk;
 use App\Models\OngkosKirim;
@@ -26,6 +28,8 @@ use App\Models\Piutang;
 
 class SalesManagementController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     protected $journalService;
 
     public function __construct(JournalEntryService $journalService)

@@ -6,10 +6,12 @@
                 <h1 class="text-2xl font-bold text-slate-900">Kepegawaian & Rekrutmen</h1>
                 <p class="text-sm text-slate-600 mt-1">Kelola data karyawan dan rekrutmen</p>
             </div>
+            @hasPermission('hrm.karyawan.create')
             <button onclick="openAddModal()" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2">
                 <i class='bx bx-plus'></i>
                 <span>Tambah Karyawan</span>
             </button>
+            @endhasPermission
         </div>
 
         {{-- Stats Cards --}}
@@ -95,12 +97,14 @@
                     <button onclick="loadData()" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex-1">
                         <i class='bx bx-search'></i> Filter
                     </button>
+                    @can('hrm.karyawan.export')
                     <button onclick="exportPdf()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
                         <i class='bx bxs-file-pdf'></i>
                     </button>
                     <button onclick="exportExcel()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
                         <i class='bx bxs-file'></i>
                     </button>
+                    @endcan
                 </div>
             </div>
         </div>
@@ -334,12 +338,16 @@
                         <td class="px-4 py-3 text-slate-700">${emp.salary_formatted}</td>
                         <td class="px-4 py-3 text-slate-700">${emp.join_date}</td>
                         <td class="px-4 py-3 text-center">
+                            @hasPermission('hrm.karyawan.edit')
                             <button onclick="editEmployee(${emp.id})" class="px-2 py-1 text-blue-600 hover:bg-blue-50 rounded">
                                 <i class='bx bx-edit'></i>
                             </button>
+                            @endhasPermission
+                            @hasPermission('hrm.karyawan.delete')
                             <button onclick="deleteEmployee(${emp.id})" class="px-2 py-1 text-red-600 hover:bg-red-50 rounded">
                                 <i class='bx bx-trash'></i>
                             </button>
+                            @endhasPermission
                         </td>
                     </tr>
                 `;

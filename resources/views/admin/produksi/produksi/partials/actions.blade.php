@@ -1,20 +1,26 @@
 <div class="flex items-center gap-2">
     @if($production->status === 'draft')
+        @hasPermission('production.produksi.approve')
         <button onclick="approveProduction({{ $production->id }})" 
                 class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
                 title="Setujui">
             <i class='bx bx-check text-lg'></i>
         </button>
+        @endhasPermission
+        @hasPermission('production.produksi.update')
         <button onclick="editProduction({{ $production->id }})" 
                 class="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded transition"
                 title="Edit">
             <i class='bx bx-edit text-lg'></i>
         </button>
+        @endhasPermission
+        @hasPermission('production.produksi.delete')
         <button onclick="deleteProduction({{ $production->id }})" 
                 class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition"
                 title="Hapus">
             <i class='bx bx-trash text-lg'></i>
         </button>
+        @endhasPermission
     @elseif($production->status === 'approved')
         <button onclick="startProduction({{ $production->id }})" 
                 class="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded transition"

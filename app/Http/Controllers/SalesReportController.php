@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\Penjualan;
 use App\Models\PosSale;
 use App\Models\Piutang;
@@ -15,6 +17,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class SalesReportController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     /**
      * Display sales report page
      */

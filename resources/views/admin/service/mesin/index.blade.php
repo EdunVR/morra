@@ -7,9 +7,11 @@
                 <p class="text-slate-600 text-sm">Kelola data mesin customer dan produk service.</p>
             </div>
             <div class="flex flex-wrap gap-2">
+                @hasPermission('service.mesin.create')
                 <button x-on:click="openCreate()" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700">
                     <i class='bx bx-plus-circle text-lg'></i> Tambah Mesin
                 </button>
+                @endhasPermission
             </div>
         </div>
 

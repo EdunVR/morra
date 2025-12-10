@@ -9,171 +9,41 @@
         exit;
     }
 
-    // Define menus with permission requirements
-    $menusWithPermissions = [
-        'Master/Inventaris' => [
-            'module' => 'inventaris',
-            'items' => [
-                ['Outlet', route('admin.inventaris.outlet.index'), ['inventaris.outlet.view']],
-                ['Kategori Umum', route('admin.inventaris.kategori.index'), ['inventaris.kategori.view']],
-                ['Satuan', route('admin.inventaris.satuan.index'), ['inventaris.satuan.view']],
-                ['Produk', route('admin.inventaris.produk.index'), ['inventaris.produk.view']],
-                ['Bahan', route('admin.inventaris.bahan.index'), ['inventaris.bahan.view']],
-                ['Sparepart', route('admin.inventaris.sparepart.index'), []],
-                ['Inventori', route('admin.inventaris.inventori.index'), ['inventaris.inventori.view']],
-                ['Transfer Gudang', route('admin.inventaris.transfer-gudang.index'), ['inventaris.transfer-gudang.view']],
-            ]
-        ],
-
-        'Pelanggan (CRM)' => [
-            'module' => 'crm',
-            'items' => [
-                ['Tipe & Diskon Customer', route('admin.crm.tipe.index'), ['crm.tipe.view']],
-                ['Manajemen Pelanggan', route('admin.crm.pelanggan.index'), ['crm.pelanggan.view']],
-                ['Manajemen Prospek & Lead', '#', ['crm.leads.view']],
-            ]
-        ],
-
-        'Keuangan (F&A)' => [
-            'module' => 'finance',
-            'items' => [
-                ['Dashboard Finance', route('finance.dashboard.index'), ['finance.dashboard.view']],
-                ['Manajemen RAB', route('admin.finance.rab.index'), ['finance.rab.view']],
-                ['Biaya', route('finance.biaya.index'), ['finance.biaya.view']],
-                ['Hutang', route('finance.hutang.index'), ['finance.hutang.view']],
-                ['Piutang', route('finance.piutang.index'), ['finance.piutang.view']],
-                ['Rekonsiliasi Bank', route('finance.rekonsiliasi.index'), ['finance.rekonsiliasi.view']],
-                ['Daftar Akun', route('finance.akun.index'), ['finance.buku.view']],
-                ['Buku Akuntansi', route('finance.buku.index'), ['finance.buku.view']],
-                ['Saldo Awal', route('finance.saldo-awal.index'), ['finance.buku.view']],
-                ['Jurnal', route('finance.jurnal.index'), ['finance.jurnal.view']],
-                ['Aktiva Tetap', route('finance.aktiva.index'), ['finance.aktiva.view']],
-                ['Buku Besar', route('finance.buku-besar.index'), ['finance.ledger.view']],
-                ['Neraca', route('finance.neraca.index'), ['finance.neraca.view']],
-                ['Neraca Saldo', route('finance.neraca-saldo.index'), ['finance.neraca.view']],
-                ['Laporan Laba Rugi', route('finance.profit-loss.index'), ['finance.laba-rugi.view']],
-                ['Arus Kas', route('finance.cashflow.index'), ['finance.arus-kas.view']],
-            ]
-        ],
-
-        'Penjualan (S&M)' => [
-            'module' => 'sales',
-            'items' => [
-                ['Point of Sales', route('admin.penjualan.pos.index'), ['pos.kasir.view']],
-                ['Invoice Penjualan', route('admin.penjualan.invoice.index'), ['sales.invoice.view']],
-                ['Laporan Penjualan', route('admin.penjualan.laporan.index'), ['sales.invoice.view']],
-                ['Laporan Margin', route('admin.penjualan.margin.index'), ['sales.invoice.view']],
-                ['Agen & Gerobak', route('admin.penjualan.agen_gerobak.index'), ['sales.invoice.view']],
-                ['Halaman Agen', route('admin.penjualan.agen.index'), ['sales.invoice.view']],
-            ]
-        ],
-
-        'Pembelian (PM)' => [
-            'module' => 'procurement',
-            'items' => [
-                ['Purchase Order', route('pembelian.purchase-order.index'), ['procurement.purchase-order.view']],
-            ]
-        ],
-
-        'Produksi (MRP)' => [
-            'module' => 'production',
-            'items' => [
-                ['Data Produksi', route('admin.produksi.produksi.index'), []],
-            ]
-        ],
-
-        'Rantai Pasok (SCM)' => [
-            'module' => 'inventaris',
-            'items' => [
-                ['Transfer Gudang', route('admin.inventaris.transfer-gudang.index'), ['inventaris.transfer-gudang.view']],
-            ]
-        ],
-
-        'SDM' => [
-            'module' => 'hrm',
-            'items' => [
-                ['Kepegawaian & Rekrutmen', route('sdm.kepegawaian.index'), ['hrm.karyawan.view']],
-                ['Penggajian / Payroll', route('sdm.payroll.index'), ['hrm.payroll.view']],
-                ['Manajemen Absensi', route('sdm.attendance.index'), ['hrm.absensi.view']],
-                ['Manajemen Kinerja', route('sdm.kinerja.index'), ['hrm.karyawan.view']],
-                ['Kontrak & Dokumen HR', route('sdm.kontrak.index'), ['hrm.karyawan.view']],
-                ['Pelatihan & Pengembangan', '#', ['hrm.karyawan.view']],
-            ]
-        ],
-
-        'Service Management' => [
-            'module' => 'service',
-            'items' => [
-                ['Invoice Service', route('admin.service.invoice.index'), ['service.invoice.view']],
-                ['History Service', route('admin.service.history.index'), ['service.history.view']],
-                ['Ongkir Service', route('admin.service.ongkir.index'), ['service.ongkir.view']],
-                ['Mesin Customer', route('admin.service.mesin.index'), ['service.mesin.view']],
-            ]
-        ],
-
-        'Investor' => [
-            'module' => 'investor',
-            'items' => [
-                ['Profil Investor', route('admin.investor.profil.index'), ['investor.profil.view']],
-                ['Bagi Hasil', '#', ['investor.bagi-hasil.view']],
-                ['List Pencairan', '#', ['investor.pencairan.view']],
-            ]
-        ],
-
-        'Sistem' => [
-            'module' => 'sistem',
-            'items' => [
-                ['User Management', route('admin.users.index'), ['sistem.users.view']],
-                ['Role & Permission', route('admin.roles.index'), ['sistem.roles.view']],
-                ['Pengaturan', '#', ['sistem.settings.view']],
-            ]
-        ],
-    ];
+    // Load menu structure from config
+    $sidebarMenus = config('sidebar_menu');
 
     // Filter menus based on user permissions
     $menus = [];
-    foreach ($menusWithPermissions as $menuName => $menuData) {
+    $modules = [];
+    
+    foreach ($sidebarMenus as $menuName => $menuData) {
         $filteredItems = [];
         foreach ($menuData['items'] as $item) {
-            $permissions = $item[2] ?? [];
+            $permissions = $item['permissions'] ?? [];
+            $routeUrl = $item['route'] === '#' ? '#' : route($item['route']);
+            
             // Check if user has any of the required permissions
             if ($user->hasRole('super_admin') || empty($permissions)) {
-                $filteredItems[] = [$item[0], $item[1]];
+                $filteredItems[] = [$item['name'], $routeUrl];
             } else {
                 foreach ($permissions as $perm) {
                     if ($user->hasPermission($perm)) {
-                        $filteredItems[] = [$item[0], $item[1]];
+                        $filteredItems[] = [$item['name'], $routeUrl];
                         break;
                     }
                 }
             }
         }
+        
         // Only add menu if it has accessible items
         if (!empty($filteredItems)) {
             $menus[$menuName] = $filteredItems;
-        }
-    }
-
-    // Define modules with their routes
-    $allModules = [
-        ['name'=>'Master/Inventaris','route'=>'admin.inventaris.index','icon'=>'boxes','module'=>'inventaris'],
-        ['name'=>'Pelanggan (CRM)','route'=>'admin.crm.index','icon'=>'users','module'=>'crm'],
-        ['name'=>'Penjualan (S&M)','route'=>'admin.penjualan.dashboard.index','icon'=>'receipt-text','module'=>'sales'],
-        ['name'=>'Pembelian (PM)','route'=>'pembelian.purchase-order.index','icon'=>'truck','module'=>'procurement'],
-        ['name'=>'Produksi (MRP)','route'=>'admin.produksi.produksi.index','icon'=>'factory','module'=>'production'],
-        ['name'=>'Rantai Pasok (SCM)','route'=>'admin.rantai-pasok','icon'=>'git-branch','module'=>'inventaris'],
-        ['name'=>'Keuangan (F&A)','route'=>'finance.dashboard.index','icon'=>'wallet','module'=>'finance'],
-        ['name'=>'SDM','route'=>'admin.sdm','icon'=>'id-card','module'=>'hrm'],
-        ['name'=>'Service Management','route'=>'admin.service','icon'=>'wrench','module'=>'service'],
-        ['name'=>'Investor','route'=>'admin.investor','icon'=>'hand-coins','module'=>'investor'],
-        ['name'=>'Sistem','route'=>'admin.sistem','icon'=>'settings','module'=>'sistem'],
-    ];
-
-    // Filter modules - only show if user has access to at least one submenu
-    $modules = [];
-    foreach ($allModules as $module) {
-        if (isset($menus[$module['name']])) {
-            $modules[] = $module;
+            $modules[] = [
+                'name' => $menuName,
+                'route' => $menuData['route'],
+                'icon' => $menuData['icon'],
+                'module' => $menuData['module']
+            ];
         }
     }
 @endphp

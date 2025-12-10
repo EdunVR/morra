@@ -130,6 +130,7 @@
           </div>
         </div>
         <div class="flex gap-2">
+          @hasPermission('finance.neraca-saldo.export')
           <button @click="exportPDF()" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition-colors flex items-center gap-2">
             <i class='bx bxs-file-pdf text-xl'></i>
             <span>PDF</span>
@@ -138,6 +139,7 @@
             <i class='bx bxs-file text-xl'></i>
             <span>Excel</span>
           </button>
+          @endhasPermission
         </div>
       </div>
     </div>

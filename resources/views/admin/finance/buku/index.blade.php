@@ -16,9 +16,11 @@
           </template>
         </select>
 
+        @hasPermission('finance.buku.create')
         <button @click="openCreateBook()" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 h-10 hover:bg-blue-700">
           <i class='bx bx-plus'></i> Buat Buku Baru
         </button>
+        @endhasPermission
         
         {{-- Export Dropdown --}}
         <div x-data="{ exportOpen: false }" class="relative">

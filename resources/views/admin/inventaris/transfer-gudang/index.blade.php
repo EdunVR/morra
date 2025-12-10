@@ -18,6 +18,7 @@
                 x-text="pendingCount"></span>
         </button>
 
+        @hasPermission('inventaris.transfer-gudang.create')
         <button @click="openCart=true"
                 class="inline-flex items-center gap-2 rounded-xl bg-primary-600 text-white px-4 py-2 hover:bg-primary-700">
           <i class='bx bx-transfer text-lg'></i>
@@ -26,6 +27,7 @@
                 class="ml-1 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-white/20 px-1 text-[12px] font-semibold"
                 x-text="cart.length"></span>
         </button>
+        @endhasPermission
         
         <button @click="exportPdf()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 hover:bg-slate-50">
           <i class='bx bx-export text-lg'></i> Export PDF
@@ -305,6 +307,7 @@
                       <div class="flex flex-wrap gap-1">
                         <template x-if="request.status_raw === 'menunggu'">
                           <div class="flex gap-1">
+                            @hasPermission('inventaris.transfer-gudang.approve')
                             <button @click="approveTransfer(request.id)" 
                                     class="inline-flex items-center gap-1 rounded-lg border border-green-200 text-green-700 px-2 py-1 hover:bg-green-50 text-xs">
                               <i class="bx bx-check"></i> Setujui
@@ -313,6 +316,7 @@
                                     class="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-700 px-2 py-1 hover:bg-red-50 text-xs">
                               <i class="bx bx-x"></i> Tolak
                             </button>
+                            @endhasPermission
                           </div>
                         </template>
                         <template x-if="request.status_raw !== 'menunggu'">

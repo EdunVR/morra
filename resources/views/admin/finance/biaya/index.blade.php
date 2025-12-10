@@ -24,9 +24,11 @@
           </template>
         </select>
 
+        @hasPermission('finance.biaya.create')
         <button @click="openCreateExpense()" class="inline-flex items-center gap-2 rounded-xl bg-red-600 text-white px-4 h-10 hover:bg-red-700">
           <i class='bx bx-plus'></i> Tambah Biaya
         </button>
+        @endhasPermission
         
         {{-- Export Dropdown --}}
         <div x-data="{ exportOpen: false }" class="relative">
@@ -254,11 +256,13 @@
                   <button @click="viewExpense(expense.id)" class="text-blue-600 hover:text-blue-800" title="Lihat Detail">
                     <i class="bx bx-show"></i>
                   </button>
+                  @hasPermission('finance.biaya.edit')
                   <template x-if="expense.status === 'pending'">
                     <button @click="editExpense(expense.id)" class="text-green-600 hover:text-green-800" title="Edit">
                       <i class="bx bx-edit"></i>
                     </button>
                   </template>
+                  @endhasPermission
                   <template x-if="expense.status === 'pending'">
                     <button @click="approveExpense(expense.id)" class="text-purple-600 hover:text-purple-800" title="Approve">
                       <i class="bx bx-check-circle"></i>
@@ -269,11 +273,13 @@
                       <i class="bx bx-x-circle"></i>
                     </button>
                   </template>
+                  @hasPermission('finance.biaya.delete')
                   <template x-if="expense.status === 'pending'">
                     <button @click="deleteExpense(expense.id)" class="text-red-600 hover:text-red-800" title="Hapus">
                       <i class="bx bx-trash"></i>
                     </button>
                   </template>
+                  @endhasPermission
                 </div>
               </td>
             </tr>

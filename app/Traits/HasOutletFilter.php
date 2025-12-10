@@ -68,12 +68,12 @@ trait HasOutletFilter
     }
 
     /**
-     * Validate if user has access to specific outlet
+     * Check if user has access to specific outlet
      *
      * @param int $outletId
      * @return bool
      */
-    protected function validateOutletAccess(int $outletId): bool
+    protected function hasOutletAccess(int $outletId): bool
     {
         $user = auth()->user();
 
@@ -83,19 +83,6 @@ trait HasOutletFilter
         }
 
         return $user->hasAccessToOutlet($outletId);
-    }
-
-    /**
-     * Throw 403 if user doesn't have access to outlet
-     *
-     * @param int $outletId
-     * @return void
-     */
-    protected function authorizeOutletAccess(int $outletId): void
-    {
-        if (!$this->validateOutletAccess($outletId)) {
-            abort(403, 'Anda tidak memiliki akses ke outlet ini.');
-        }
     }
 
     /**
@@ -139,5 +126,43 @@ trait HasOutletFilter
     protected function getAccessibleOutlets()
     {
         return $this->getUserOutlets();
+    }
+
+    /**
+     * Get user's accessible outlet IDs
+     *
+     * @return array
+     */
+    protected function getAccessibleOutletIds(): array
+    {
+        return $this->getUserOutletIds();
+    }
+
+    /**
+     * Check if current user is super admin
+     *
+     * @return bool
+     */
+    protected function isSuperAdmin(): bool
+    {
+        $user = auth()->user();
+        return $user && $user->hasRole('super_admin');
+    }
+
+    /**
+     * Validate outlet access and throw 403 if unauthorized
+     *
+     * @param int $outletId
+     * @return void
+     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
+     */
+    protected function validateOutletAccess(int $outletId): void
+    {
+        if (!$this->isSuperAdmin()) {
+            $accessibleIds = $this->getAccessibleOutletIds();
+            if (!in_array($outletId, $accessibleIds)) {
+                abort(403, 'Anda tidak memiliki akses ke outlet ini.');
+            }
+        }
     }
 }

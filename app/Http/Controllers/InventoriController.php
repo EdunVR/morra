@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\Inventori;
 use App\Models\Kategori;
 use App\Models\Outlet;
@@ -15,6 +17,8 @@ use Illuminate\Support\Facades\Validator;
 
 class InventoriController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     public function index()
     {
         Log::info('Loading Inventori Index Page');
@@ -27,6 +31,12 @@ class InventoriController extends Controller
 
         $query = Inventori::with(['outlet', 'kategori']);
 
+        // Filter by accessible outlets
+        if (!$this->isSuperAdmin()) {
+            $accessibleOutletIds = $this->getAccessibleOutletIds();
+            $query->whereIn('id_outlet', $accessibleOutletIds);
+        }
+
         // Search
         if ($request->has('search') && $request->search) {
             $query->search($request->search);
@@ -34,6 +44,10 @@ class InventoriController extends Controller
 
         // Filter outlet
         if ($request->has('outlet_filter') && $request->outlet_filter !== 'ALL') {
+            // Validate outlet access
+            if (!$this->isSuperAdmin()) {
+                $this->validateOutletAccess($request->outlet_filter);
+            }
             $query->where('id_outlet', $request->outlet_filter);
         }
 
@@ -131,6 +145,11 @@ class InventoriController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // Validate outlet access
+        if (!$this->isSuperAdmin()) {
+            $this->validateOutletAccess($request->id_outlet);
+        }
+
         // Generate kode inventori otomatis
         $kodeInventori = Inventori::generateKodeInventori();
 
@@ -185,6 +204,11 @@ class InventoriController extends Controller
             return response()->json(['error' => 'Inventori tidak ditemukan'], 404);
         }
 
+        // Validate outlet access for existing data
+        if (!$this->isSuperAdmin()) {
+            $this->validateOutletAccess($inventori->id_outlet);
+        }
+
         $validator = Validator::make($request->all(), [
             'nama_barang' => 'required',
             'id_kategori' => 'required|exists:kategori,id_kategori',
@@ -199,6 +223,11 @@ class InventoriController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Validate new outlet access if changed
+        if (!$this->isSuperAdmin() && $request->id_outlet != $inventori->id_outlet) {
+            $this->validateOutletAccess($request->id_outlet);
         }
 
         $inventori->update([
@@ -237,11 +266,7 @@ class InventoriController extends Controller
     // Get outlets untuk filter
     public function getOutlets()
     {
-        $outlets = Outlet::select('id_outlet', 'nama_outlet')
-            ->where('is_active', true)
-            ->orderBy('nama_outlet')
-            ->get();
-
+        $outlets = $this->getAccessibleOutlets();
         return response()->json($outlets);
     }
 
@@ -260,8 +285,18 @@ class InventoriController extends Controller
     {
         $query = Inventori::with(['outlet', 'kategori']);
 
+        // Filter by accessible outlets
+        if (!$this->isSuperAdmin()) {
+            $accessibleOutletIds = $this->getAccessibleOutletIds();
+            $query->whereIn('id_outlet', $accessibleOutletIds);
+        }
+
         // Apply filters jika ada
         if ($request->has('outlet') && $request->outlet !== 'ALL') {
+            // Validate outlet access
+            if (!$this->isSuperAdmin()) {
+                $this->validateOutletAccess($request->outlet);
+            }
             $query->where('id_outlet', $request->outlet);
         }
 

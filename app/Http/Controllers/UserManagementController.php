@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Outlet;
@@ -14,6 +16,8 @@ use Illuminate\Support\Facades\Validator;
 
 class UserManagementController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     public function index()
     {
         $users = User::with(['role', 'outlets'])->get();
@@ -282,7 +286,7 @@ class UserManagementController extends Controller
     public function getOutlets(): JsonResponse
     {
         try {
-            $outlets = Outlet::all()->map(function ($outlet) {
+            $outlets = $this->getAccessibleOutlets()->map(function ($outlet) {
                 return [
                     'id' => $outlet->id_outlet,
                     'name' => $outlet->nama_outlet,

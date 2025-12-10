@@ -10,9 +10,11 @@
       </div>
 
       <div class="flex flex-wrap gap-2">
+        @hasPermission('finance.aktiva.create')
         <button @click="openCreateAsset()" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 h-10 hover:bg-emerald-700">
           <i class='bx bx-plus'></i> Tambah Aset
         </button>
+        @endhasPermission
         <button @click="calculateDepreciation()" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 h-10 hover:bg-blue-700">
           <i class='bx bx-calculator'></i> Hitung Penyusutan
         </button>
@@ -633,6 +635,14 @@
                        class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-slate-50" 
                        readonly>
                 <p class="text-xs text-slate-500 mt-1">Outlet diambil dari filter yang dipilih</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Buku Akuntansi</label>
+                <input type="text" 
+                       :value="books.find(b => b.id == filters.book_id)?.name || 'Buku tidak dipilih'" 
+                       class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-slate-50" 
+                       readonly>
+                <p class="text-xs text-slate-500 mt-1">Buku diambil dari filter yang dipilih</p>
               </div>
             </div>
           </div>
@@ -1399,6 +1409,15 @@
           // Get outlet_id from filter
           const outletId = this.filters.outlet_id === 'all' ? (this.outlets[0]?.id_outlet || 1) : this.filters.outlet_id;
           
+          // Get book_id from filter - IMPORTANT: This is where book_id comes from
+          const bookId = this.filters.book_id || '';
+          
+          console.log('Opening create asset modal with:', {
+            outlet_id: outletId,
+            book_id: bookId,
+            filter_book_id: this.filters.book_id
+          });
+          
           // Generate asset code from API
           try {
             const response = await fetch(`{{ route("finance.fixed-assets.generate-code") }}?outlet_id=${outletId}`, {
@@ -1415,7 +1434,7 @@
             this.assetForm = {
               code: generatedCode,
               outlet_id: outletId,
-              book_id: this.filters.book_id || '', // Set from filter
+              book_id: bookId, // Set from filter
               name: '',
               category: 'equipment',
               location: '',
@@ -1436,6 +1455,7 @@
             this.assetForm = {
               code: this.generateAssetCode(),
               outlet_id: outletId,
+              book_id: bookId, // Set from filter
               name: '',
               category: 'equipment',
               location: '',
@@ -1452,6 +1472,8 @@
               description: ''
             };
           }
+          
+          console.log('Asset form initialized with book_id:', this.assetForm.book_id);
           
           this.showAssetModal = true;
         },
@@ -1551,6 +1573,13 @@
             return;
           }
           
+          // Validate book_id - warn if not set but allow to continue (backend will find a book)
+          if (!this.assetForm.book_id && !this.filters.book_id) {
+            if (!confirm('Buku akuntansi belum dipilih. Sistem akan menggunakan buku default. Lanjutkan?')) {
+              return;
+            }
+          }
+          
           if (!this.assetForm.acquisition_cost || this.assetForm.acquisition_cost <= 0) {
             alert('Nilai perolehan harus lebih besar dari 0');
             return;
@@ -1580,6 +1609,14 @@
             // Prepare data
             const data = {...this.assetForm};
             
+            // Ensure book_id is sent from filter if not already set
+            if (!data.book_id && this.filters.book_id) {
+              data.book_id = this.filters.book_id;
+            }
+            
+            // Log data being sent for debugging
+            console.log('Saving asset with data:', data);
+            
             // Add _method for PUT request
             if (this.editingAsset) {
               data._method = 'PUT';
@@ -1602,7 +1639,15 @@
               this.showAssetModal = false;
               await this.loadAssets();
             } else {
-              alert('Gagal menyimpan aset: ' + result.message);
+              // Show more detailed error message
+              let errorMsg = 'Gagal menyimpan aset: ' + result.message;
+              if (result.errors) {
+                errorMsg += '\n\nDetail error:\n';
+                Object.keys(result.errors).forEach(key => {
+                  errorMsg += `- ${key}: ${result.errors[key].join(', ')}\n`;
+                });
+              }
+              alert(errorMsg);
             }
           } catch (error) {
             console.error('Error saving asset:', error);

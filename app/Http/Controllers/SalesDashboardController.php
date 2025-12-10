@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
 use App\Models\Penjualan;
 use App\Models\PosSale;
 use App\Models\Piutang;
@@ -14,23 +15,44 @@ use Carbon\Carbon;
 
 class SalesDashboardController extends Controller
 {
+    use HasOutletFilter;
+
     public function index()
     {
-        $outlets = Outlet::where('is_active', true)->get();
+        // Get accessible outlets for current user
+        $outletIds = $this->getAccessibleOutletIds();
+        $outlets = Outlet::whereIn('id_outlet', $outletIds)
+            ->where('is_active', true)
+            ->get();
+        
         return view('admin.penjualan.index', compact('outlets'));
     }
 
     public function getData(Request $request)
     {
         try {
+            // Get accessible outlets for current user
+            $accessibleOutletIds = $this->getAccessibleOutletIds();
+            
             $outletId = $request->get('outlet_id');
             $startDate = $request->get('start_date', Carbon::now()->subDays(30)->format('Y-m-d'));
             $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
+
+            // Validate outlet access if specific outlet requested
+            if ($outletId && $outletId !== 'all') {
+                if (!in_array($outletId, $accessibleOutletIds)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Anda tidak memiliki akses ke outlet ini'
+                    ], 403);
+                }
+            }
 
             // Get Invoice data (exclude POS-generated penjualan)
             $posGeneratedPenjualanIds = PosSale::pluck('id_penjualan')->filter()->toArray();
             
             $invoices = Penjualan::with(['outlet', 'member', 'details'])
+                ->whereIn('id_outlet', $accessibleOutletIds) // Filter by accessible outlets
                 ->whereNotIn('id_penjualan', $posGeneratedPenjualanIds)
                 ->when($outletId && $outletId !== 'all', function($q) use ($outletId) {
                     $q->where('id_outlet', $outletId);
@@ -42,6 +64,7 @@ class SalesDashboardController extends Controller
 
             // Get POS data
             $posSales = PosSale::with(['outlet', 'member', 'items'])
+                ->whereIn('id_outlet', $accessibleOutletIds) // Filter by accessible outlets
                 ->when($outletId && $outletId !== 'all', function($q) use ($outletId) {
                     $q->where('id_outlet', $outletId);
                 })
@@ -199,6 +222,9 @@ class SalesDashboardController extends Controller
 
     private function calculateKPI($salesData, $startDate, $endDate, $outletId)
     {
+        // Get accessible outlets for filtering
+        $accessibleOutletIds = $this->getAccessibleOutletIds();
+        
         $totalTransaksi = count($salesData);
         $totalItem = array_sum(array_column($salesData, 'total_item'));
         $totalPenjualan = array_sum(array_column($salesData, 'total'));
@@ -213,14 +239,16 @@ class SalesDashboardController extends Controller
         $prevStartDate = Carbon::parse($startDate)->subDays($periodDays)->format('Y-m-d');
         $prevEndDate = Carbon::parse($startDate)->subDay()->format('Y-m-d');
 
-        $prevInvoiceTotal = Penjualan::when($outletId && $outletId !== 'all', function($q) use ($outletId) {
+        $prevInvoiceTotal = Penjualan::whereIn('id_outlet', $accessibleOutletIds) // Filter by accessible outlets
+            ->when($outletId && $outletId !== 'all', function($q) use ($outletId) {
                 $q->where('id_outlet', $outletId);
             })
             ->whereDate('created_at', '>=', $prevStartDate)
             ->whereDate('created_at', '<=', $prevEndDate)
             ->sum('bayar');
 
-        $prevPosTotal = PosSale::when($outletId && $outletId !== 'all', function($q) use ($outletId) {
+        $prevPosTotal = PosSale::whereIn('id_outlet', $accessibleOutletIds) // Filter by accessible outlets
+            ->when($outletId && $outletId !== 'all', function($q) use ($outletId) {
                 $q->where('id_outlet', $outletId);
             })
             ->whereDate('tanggal', '>=', $prevStartDate)
@@ -285,6 +313,9 @@ class SalesDashboardController extends Controller
 
     private function getDailyTrend($startDate, $endDate, $outletId)
     {
+        // Get accessible outlets for filtering
+        $accessibleOutletIds = $this->getAccessibleOutletIds();
+        
         $days = Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate)) + 1;
         $days = min($days, 30); // Max 30 days for trend
 
@@ -293,13 +324,15 @@ class SalesDashboardController extends Controller
         for ($i = 0; $i < $days; $i++) {
             $date = Carbon::parse($endDate)->subDays($days - 1 - $i)->format('Y-m-d');
             
-            $invoiceTotal = Penjualan::when($outletId && $outletId !== 'all', function($q) use ($outletId) {
+            $invoiceTotal = Penjualan::whereIn('id_outlet', $accessibleOutletIds) // Filter by accessible outlets
+                ->when($outletId && $outletId !== 'all', function($q) use ($outletId) {
                     $q->where('id_outlet', $outletId);
                 })
                 ->whereDate('created_at', $date)
                 ->sum('bayar');
 
-            $posTotal = PosSale::when($outletId && $outletId !== 'all', function($q) use ($outletId) {
+            $posTotal = PosSale::whereIn('id_outlet', $accessibleOutletIds) // Filter by accessible outlets
+                ->when($outletId && $outletId !== 'all', function($q) use ($outletId) {
                     $q->where('id_outlet', $outletId);
                 })
                 ->whereDate('tanggal', $date)

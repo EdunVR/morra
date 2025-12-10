@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use App\Models\ChartOfAccount;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryDetail;
@@ -15,9 +17,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class FinanceDashboardController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     public function index()
     {
-        $outlets = Outlet::all();
+        $outlets = $this->getAccessibleOutlets();
         return view('admin.finance.index', compact('outlets'));
     }
 

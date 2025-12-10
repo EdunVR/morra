@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\HasOutletFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -13,6 +15,8 @@ use App\Models\Recruitment;
 
 class AdminDashboardController extends Controller
 {
+    use \App\Traits\HasOutletFilter;
+
     public function index()
     {
         return view('admin.dashboard');
