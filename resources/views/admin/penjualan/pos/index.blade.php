@@ -59,8 +59,17 @@
         
         {{-- Product Grid --}}
         <template x-for="p in filteredProducts()" :key="p.sku">
-          <button class="text-left rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 p-3 shadow-sm flex flex-col" x-on:click="addItem(p)">
-            <div class="w-full aspect-square bg-slate-100 rounded-lg mb-2 overflow-hidden flex items-center justify-center">
+          <button class="text-left rounded-2xl border p-3 shadow-sm flex flex-col relative" 
+                  :class="p.stock > 0 ? 'border-slate-200 bg-white hover:bg-slate-50' : 'border-red-200 bg-red-50 opacity-75'"
+                  x-on:click="addItem(p)">
+            
+            {{-- Stock Out Badge --}}
+            <div x-show="p.stock <= 0" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium z-10">
+              HABIS
+            </div>
+            
+            <div class="w-full aspect-square bg-slate-100 rounded-lg mb-2 overflow-hidden flex items-center justify-center"
+                 :class="p.stock <= 0 ? 'grayscale' : ''">
               <img x-show="p.image" :src="p.image" :alt="p.name" class="w-full h-full object-cover" x-on:error="$event.target.style.display='none'">
               <div x-show="!p.image" class="text-slate-400 text-center p-2">
                 <i class='bx bx-image text-4xl'></i>
@@ -72,9 +81,9 @@
             </div>
             <div class="font-medium text-sm line-clamp-2" x-text="p.name"></div>
             <div class="text-xs text-slate-500 mt-1" x-text="`SKU: ${p.sku}`"></div>
-            <div class="mt-2 text-primary-700 font-bold" x-text="idr(p.price)"></div>
+            <div class="mt-2 font-bold" :class="p.stock > 0 ? 'text-primary-700' : 'text-slate-500'" x-text="idr(p.price)"></div>
             <div class="text-xs text-slate-500" x-text="p.category"></div>
-            <div class="text-xs" :class="p.stock > 0 ? 'text-green-600' : 'text-red-600'" x-text="`Stok: ${p.stock}`"></div>
+            <div class="text-xs font-medium" :class="p.stock > 0 ? 'text-green-600' : 'text-red-600'" x-text="`Stok: ${p.stock}`"></div>
           </button>
         </template>
       </div>
@@ -557,6 +566,73 @@
     </div>
   </div>
 
+  {{-- Modal Stock Habis --}}
+  <div x-show="showStockOutModal" x-transition class="fixed inset-0 bg-black/30 z-50" style="display: none;">
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div @click.away="closeStockModal()" class="w-full max-w-md rounded-2xl bg-white border border-red-200 shadow-lg overflow-hidden">
+        
+        {{-- Header --}}
+        <div class="flex items-center justify-between p-4 border-b bg-red-50">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <i class='bx bx-x-circle text-2xl text-red-600'></i>
+            </div>
+            <h2 class="text-lg font-bold text-red-900">Stok Habis</h2>
+          </div>
+          <button x-on:click="closeStockModal()" class="w-8 h-8 rounded hover:bg-red-100">
+            <i class='bx bx-x text-xl text-red-600'></i>
+          </button>
+        </div>
+
+        {{-- Body --}}
+        <div class="p-6">
+          <div x-show="stockOutProduct" class="text-center">
+            {{-- Product Image --}}
+            <div class="w-20 h-20 mx-auto mb-4 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center">
+              <img x-show="stockOutProduct?.image" :src="stockOutProduct?.image" :alt="stockOutProduct?.name" class="w-full h-full object-cover grayscale">
+              <div x-show="!stockOutProduct?.image" class="text-slate-400">
+                <i class='bx bx-image text-3xl'></i>
+              </div>
+            </div>
+            
+            {{-- Product Info --}}
+            <h3 class="font-semibold text-lg text-slate-900 mb-1" x-text="stockOutProduct?.name"></h3>
+            <p class="text-sm text-slate-500 mb-2" x-text="'SKU: ' + (stockOutProduct?.sku || '')"></p>
+            <p class="text-lg font-bold text-slate-700 mb-4" x-text="stockOutProduct ? idr(stockOutProduct.price) : ''"></p>
+            
+            {{-- Warning Message --}}
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <div class="flex items-center gap-2 text-red-700 mb-2">
+                <i class='bx bx-error-circle text-xl'></i>
+                <span class="font-semibold">Produk Tidak Tersedia</span>
+              </div>
+              <p class="text-sm text-red-600">
+                Maaf, produk ini sedang habis stok di outlet ini. 
+                Silakan pilih produk lain atau hubungi admin untuk restock.
+              </p>
+            </div>
+            
+            {{-- Stock Info --}}
+            <div class="text-center">
+              <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-medium">
+                <i class='bx bx-package'></i>
+                Stok: 0
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {{-- Footer --}}
+        <div class="p-4 border-t bg-slate-50">
+          <button x-on:click="closeStockModal()" class="w-full h-10 rounded-xl bg-slate-600 text-white hover:bg-slate-700 font-medium">
+            Mengerti
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -619,15 +695,66 @@ function posApp() {
       end_date: new Date().toISOString().split('T')[0],
       search: ''
     },
+    // Modal untuk notifikasi stock habis
+    showStockOutModal: false,
+    stockOutProduct: null,
 
     async init() {
-      await this.loadProducts();
-      await this.loadCustomers();
-      await this.loadCoaData();
-      this.holds = JSON.parse(localStorage.getItem(this.HOLDS_STORAGE)||'[]');
-      this.tick();
-      setInterval(()=>this.tick(), 1000);
-      this.recalc();
+      console.log('🚀 [POS] Initializing POS app...');
+      console.log('🏪 [POS] Initial outlet from server:', this.state.outlet);
+      console.log('🏪 [POS] Outlet type:', typeof this.state.outlet);
+      
+      // Validasi outlet ID dari server
+      if (!this.state.outlet || this.state.outlet === '' || this.state.outlet === null || this.state.outlet === 'null') {
+        console.error('❌ [POS] Invalid outlet ID from server:', this.state.outlet);
+        console.log('🔧 [POS] Setting default outlet to first available outlet');
+        // Ambil outlet pertama dari dropdown
+        const firstOutlet = document.querySelector('select[x-model="state.outlet"] option:first-child');
+        if (firstOutlet) {
+          this.state.outlet = parseInt(firstOutlet.value);
+          console.log('🔧 [POS] Set outlet to:', this.state.outlet);
+        } else {
+          this.state.outlet = 2; // Fallback ke outlet 2 yang kita tahu ada
+          console.log('🔧 [POS] Fallback to outlet 2');
+        }
+      }
+      
+      console.log('🏪 [POS] Final outlet for initialization:', this.state.outlet);
+      
+      // Load data sequentially to ensure proper initialization
+      try {
+        console.log('📦 [POS] Loading products for outlet:', this.state.outlet);
+        await this.loadProducts();
+        
+        console.log('👥 [POS] Loading customers...');
+        await this.loadCustomers();
+        
+        console.log('💰 [POS] Loading COA data for outlet:', this.state.outlet);
+        await this.loadCoaData();
+        
+        // Load holds from localStorage
+        this.holds = JSON.parse(localStorage.getItem(this.HOLDS_STORAGE)||'[]');
+        
+        // Start clock
+        this.tick();
+        setInterval(()=>this.tick(), 1000);
+        
+        // Initial calculation
+        this.recalc();
+        
+        console.log('✅ [POS] Initialization complete. Products loaded:', this.products.length);
+        
+        // Jika masih tidak ada produk, tampilkan informasi debug
+        if (this.products.length === 0) {
+          console.warn('⚠️ [POS] No products loaded! Debug info:');
+          console.warn('- Outlet ID:', this.state.outlet);
+          console.warn('- Products array:', this.products);
+          console.warn('- Categories array:', this.categories);
+        }
+      } catch (error) {
+        console.error('❌ [POS] Initialization failed:', error);
+        alert('Gagal memuat data POS. Silakan refresh halaman.');
+      }
     },
 
     async onOutletChange() {
@@ -658,6 +785,14 @@ function posApp() {
     async loadProducts() {
       const startTime = performance.now();
       console.log('📦 [POS] loadProducts() started for outlet:', this.state.outlet);
+      console.log('📦 [POS] Current state:', JSON.stringify(this.state));
+      
+      // Validasi outlet ID
+      if (!this.state.outlet || this.state.outlet === '' || this.state.outlet === null) {
+        console.error('❌ [POS] Invalid outlet ID:', this.state.outlet);
+        alert('Outlet ID tidak valid. Silakan refresh halaman.');
+        return;
+      }
       
       try {
         // Clear products before loading
@@ -674,7 +809,14 @@ function posApp() {
         }, 3000);
         
         const fetchStart = performance.now();
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+          }
+        });
         clearTimeout(timeoutWarning);
         
         const fetchDuration = performance.now() - fetchStart;
@@ -690,7 +832,9 @@ function posApp() {
         // Check if response is OK
         if (!response.ok) {
           console.error('❌ [POS] Failed to load products: HTTP ' + response.status);
-          alert('Gagal memuat produk. Silakan refresh halaman.');
+          const errorText = await response.text();
+          console.error('❌ [POS] Error response:', errorText.substring(0, 500));
+          alert('Gagal memuat produk. Status: ' + response.status);
           return;
         }
         
@@ -716,21 +860,29 @@ function posApp() {
           const productsData = result.data || [];
           console.log('✅ [POS] Products received:', productsData.length);
           console.log('📦 [POS] Sample product:', productsData[0]);
+          console.log('📦 [POS] API outlet_id confirmation:', result.outlet_id);
           
           this.products = productsData;
           this.categories = [...new Set(this.products.map(p=>p.category))];
           console.log('📂 [POS] Categories:', this.categories);
           
           // Generate barcodes after products are loaded
-          console.log('🔢 [POS] Scheduling barcode generation...');
-          this.$nextTick(() => {
-            console.log('🔢 [POS] Generating barcodes...');
-            this.generateBarcodes();
-            console.log('✅ [POS] Barcodes generated');
-          });
+          if (productsData.length > 0) {
+            console.log('🔢 [POS] Scheduling barcode generation...');
+            this.$nextTick(() => {
+              console.log('🔢 [POS] Generating barcodes...');
+              this.generateBarcodes();
+              console.log('✅ [POS] Barcodes generated');
+            });
+          }
           
           const totalDuration = performance.now() - startTime;
           console.log(`✅ [POS] loadProducts() completed in ${totalDuration.toFixed(2)}ms`);
+          
+          // Jika tidak ada produk, tampilkan peringatan
+          if (productsData.length === 0) {
+            console.warn('⚠️ [POS] No products found for outlet:', this.state.outlet);
+          }
         } else {
           console.error('❌ [POS] Load products failed:', result.message);
           alert('Gagal memuat produk: ' + (result.message || 'Unknown error'));
@@ -1028,13 +1180,18 @@ function posApp() {
       return this.products.filter(p=>{
         const byCat = this.ui.cat==='all' || p.category===this.ui.cat;
         const byQ   = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
-        const hasStock = p.stock > 0;
-        return byCat && byQ && hasStock;
+        // Tampilkan semua produk termasuk yang stock 0
+        return byCat && byQ;
       });
     },
 
     addItem(p) {
-      if (p.stock <= 0) { alert('Stok habis untuk outlet ini.'); return; }
+      // Cek jika stock 0, tampilkan modal notifikasi
+      if (p.stock <= 0) { 
+        this.showStockModal(p);
+        return; 
+      }
+      
       const ix = this.cart.findIndex(x=>x.sku===p.sku);
       if(ix>=0){
         if (this.cart[ix].qty + 1 > p.stock) { alert('Qty melebihi stok.'); return; }
@@ -1264,6 +1421,16 @@ function posApp() {
       this.showPrintModal = false;
       this.lastSaleId = null;
       this.printPreviewUrl = '';
+    },
+
+    showStockModal(product) {
+      this.stockOutProduct = product;
+      this.showStockOutModal = true;
+    },
+
+    closeStockModal() {
+      this.showStockOutModal = false;
+      this.stockOutProduct = null;
     },
 
     idr(n) { 

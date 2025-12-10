@@ -3390,7 +3390,7 @@
                 };
 
                 // Load payment history
-                const response = await fetch(`{{ url('penjualan/invoice') }}/${invoiceId}/payment-history`);
+                const response = await fetch(`{{ route('admin.penjualan.invoice.payment.history', ':id') }}`.replace(':id', invoiceId));
                 const result = await response.json();
 
                 if (result.success) {
@@ -3425,7 +3425,7 @@
                     return;
                 }
 
-                const response = await fetch(`{{ url('penjualan/invoice') }}/${invoiceId}/confirm`, {
+                const response = await fetch(`{{ route('admin.penjualan.invoice.confirm', ':id') }}`.replace(':id', invoiceId), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

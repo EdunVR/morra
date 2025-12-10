@@ -352,6 +352,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('/pos/{id}', [PosController::class, 'show'])->name('pos.show');
         Route::get('/pos/{id}/print', [PosController::class, 'print'])->name('pos.print');
         
+        // POS Cache Management Routes
+        Route::post('/pos/cache/clear', [PosController::class, 'clearProductsCache'])->name('pos.cache.clear');
+        Route::post('/pos/cache/warm', [PosController::class, 'warmProductsCache'])->name('pos.cache.warm');
+        
         // Tambahkan route untuk submenu penjualan lainnya
         Route::get('/laporan-penjualan', [SalesReportController::class, 'index'])->name('laporan.index');
         Route::get('/laporan-penjualan/data', [SalesReportController::class, 'getData'])->name('laporan.data');

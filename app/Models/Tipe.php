@@ -13,6 +13,17 @@ class Tipe extends Model
     protected $primaryKey = 'id_tipe';
     protected $guarded = [];
 
+    protected $fillable = [
+        'nama_tipe',
+        'keterangan',
+        'id_outlet'
+    ];
+
+    public function outlet()
+    {
+        return $this->belongsTo(Outlet::class, 'id_outlet', 'id_outlet');
+    }
+
     public function produkTipe()
     {
         return $this->hasMany(ProdukTipe::class, 'id_tipe');

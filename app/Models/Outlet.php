@@ -104,5 +104,11 @@ class Outlet extends Model
     {
         return $this->hasMany(PermintaanPengiriman::class, 'id_outlet_tujuan', 'id_outlet');
     }
+
+    // Relasi ke Tipe Customer
+    public function tipes()
+    {
+        return $this->hasMany(Tipe::class, 'id_outlet', 'id_outlet');
+    }
     
 }

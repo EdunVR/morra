@@ -268,7 +268,7 @@ class ProdukController extends Controller
                             ProductImage::create([
                                 'id_produk' => $produk->id_produk,
                                 'path' => $path,
-                                'is_primary' => $key === 0
+                                'is_primary' => $key === 0 ? 1 : 0  // Gambar pertama selalu jadi primary
                             ]);
                         } else {
                             \Log::warning('Invalid image file', ['key' => $key]);
@@ -353,7 +353,7 @@ class ProdukController extends Controller
                     ProductImage::create([
                         'id_produk' => $produk->id_produk,
                         'path' => $path,
-                        'is_primary' => $isPrimary === 'true'
+                        'is_primary' => $isPrimary === 'true' ? 1 : 0  // Pastikan gambar pertama jadi primary
                     ]);
                     
                 
@@ -381,6 +381,109 @@ class ProdukController extends Controller
 
         
         return response()->json('Data berhasil disimpan', 200);
+    }
+
+    /**
+     * Set primary image untuk produk
+     */
+    public function setPrimaryImage(Request $request, $productId)
+    {
+        \Log::info('setPrimaryImage called', [
+            'productId' => $productId,
+            'image_id' => $request->input('image_id'),
+            'all_input' => $request->all()
+        ]);
+
+        try {
+            $request->validate([
+                'image_id' => 'required|integer|exists:product_images,id_image'
+            ]);
+
+            $imageId = $request->image_id;
+
+            // Pastikan image belongs to product
+            $image = ProductImage::where('id_image', $imageId)
+                ->where('id_produk', $productId)
+                ->first();
+
+            if (!$image) {
+                \Log::error('Image not found', ['image_id' => $imageId, 'product_id' => $productId]);
+                return response()->json(['error' => 'Gambar tidak ditemukan'], 404);
+            }
+
+            // Reset semua gambar produk ini menjadi bukan primary
+            ProductImage::where('id_produk', $productId)
+                ->update(['is_primary' => 0]);
+
+            // Set gambar yang dipilih sebagai primary
+            $image->update(['is_primary' => 1]);
+
+            \Log::info('Primary image set successfully', ['image_id' => $imageId]);
+            return response()->json(['message' => 'Gambar cover berhasil diset'], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Error setting primary image: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'Gagal mengatur gambar cover'], 500);
+        }
+    }
+
+    /**
+     * Remove image dari produk
+     */
+    public function removeImage(Request $request, $productId)
+    {
+        \Log::info('removeImage called', [
+            'productId' => $productId,
+            'image_id' => $request->input('image_id'),
+            'all_input' => $request->all()
+        ]);
+
+        try {
+            $request->validate([
+                'image_id' => 'required|integer|exists:product_images,id_image'
+            ]);
+
+            $imageId = $request->image_id;
+
+            // Pastikan image belongs to product
+            $image = ProductImage::where('id_image', $imageId)
+                ->where('id_produk', $productId)
+                ->first();
+
+            if (!$image) {
+                \Log::error('Image not found', ['image_id' => $imageId, 'product_id' => $productId]);
+                return response()->json(['error' => 'Gambar tidak ditemukan'], 404);
+            }
+
+            $wasPrimary = $image->is_primary;
+
+            // Hapus file dari storage
+            if (Storage::disk('public')->exists($image->path)) {
+                Storage::disk('public')->delete($image->path);
+            }
+
+            // Hapus record dari database
+            $image->delete();
+
+            // Jika gambar yang dihapus adalah primary, set gambar pertama yang tersisa sebagai primary
+            if ($wasPrimary) {
+                $firstImage = ProductImage::where('id_produk', $productId)->first();
+                if ($firstImage) {
+                    $firstImage->update(['is_primary' => 1]);
+                }
+            }
+
+            \Log::info('Image removed successfully', ['image_id' => $imageId, 'was_primary' => $wasPrimary]);
+            return response()->json(['message' => 'Gambar berhasil dihapus'], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Error removing image: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'Gagal menghapus gambar'], 500);
+        }
     }
 
     /**
@@ -497,16 +600,30 @@ class ProdukController extends Controller
 
             if ($request->hasFile('images')) {
                 \Log::info('Processing images for update', ['count' => count($request->file('images'))]);
+                
+                // Cek apakah produk sudah punya gambar primary
+                $hasPrimaryImage = ProductImage::where('id_produk', $produk->id_produk)
+                    ->where('is_primary', 1)
+                    ->exists();
+                
                 foreach ($request->file('images') as $key => $file) {
                     if ($file && $file->isValid()) {
                         $path = $file->store('product_images', 'public');
                         \Log::info('Image stored for update', ['key' => $key, 'path' => $path]);
                         
+                        // Jika belum ada gambar primary dan ini gambar pertama yang diupload, jadikan primary
+                        $isPrimary = !$hasPrimaryImage && $key === 0;
+                        
                         ProductImage::create([
                             'id_produk' => $produk->id_produk,
                             'path' => $path,
-                            'is_primary' => false
+                            'is_primary' => $isPrimary ? 1 : 0
                         ]);
+                        
+                        // Update flag setelah create primary image
+                        if ($isPrimary) {
+                            $hasPrimaryImage = true;
+                        }
                     }
                 }
             }
@@ -648,7 +765,7 @@ class ProdukController extends Controller
                     $isPrimary = $request->input("uploaded_images.{$index}.is_primary", 'false') === 'true';
                     
                     $image->update([
-                        'is_primary' => $isPrimary
+                        'is_primary' => $isPrimary ? 1 : 0
                     ]);
                     
                     $existingImageIds[] = $image->id_image;
@@ -667,7 +784,7 @@ class ProdukController extends Controller
                     ProductImage::create([
                         'id_produk' => $produk->id_produk,
                         'path' => $path,
-                        'is_primary' => $isPrimary
+                        'is_primary' => $isPrimary === 'true' ? 1 : 0
                     ]);
                 }
             }
@@ -879,6 +996,8 @@ class ProdukController extends Controller
 
         return response()->json($units);
     }
+
+
 
     // ========== FUNGSI LAMA TETAP DI PERTAHANKAN ==========
 
@@ -1293,94 +1412,4 @@ class ProdukController extends Controller
         }
     }
 
-    /**
-     * Remove image from product
-     */
-    public function removeImage(Request $request, $productId)
-    {
-        Log::info('removeImage called', [
-            'productId' => $productId,
-            'image_id' => $request->input('image_id'),
-            'all_input' => $request->all()
-        ]);
-
-        try {
-            $imageId = $request->input('image_id');
-            
-            if (!$imageId) {
-                Log::error('No image_id provided');
-                return response()->json(['error' => 'Image ID tidak ditemukan'], 400);
-            }
-
-            $image = ProductImage::where('id_image', $imageId)
-                ->where('id_produk', $productId)
-                ->first();
-
-            if (!$image) {
-                Log::error('Image not found', ['image_id' => $imageId, 'product_id' => $productId]);
-                return response()->json(['error' => 'Gambar tidak ditemukan'], 404);
-            }
-
-            // Delete file from storage
-            if (Storage::disk('public')->exists($image->path)) {
-                Storage::disk('public')->delete($image->path);
-            }
-
-            // Delete from database
-            $image->delete();
-
-            Log::info('Image removed successfully', ['image_id' => $imageId]);
-            return response()->json(['message' => 'Gambar berhasil dihapus'], 200);
-        } catch (\Exception $e) {
-            Log::error('Error removing image: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            return response()->json(['error' => 'Gagal menghapus gambar: ' . $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Set primary image for product
-     */
-    public function setPrimaryImage(Request $request, $productId)
-    {
-        Log::info('setPrimaryImage called', [
-            'productId' => $productId,
-            'image_id' => $request->input('image_id'),
-            'all_input' => $request->all()
-        ]);
-
-        try {
-            $imageId = $request->input('image_id');
-            
-            if (!$imageId) {
-                Log::error('No image_id provided');
-                return response()->json(['error' => 'Image ID tidak ditemukan'], 400);
-            }
-
-            // Reset all images to non-primary
-            ProductImage::where('id_produk', $productId)
-                ->update(['is_primary' => false]);
-
-            // Set selected image as primary
-            $image = ProductImage::where('id_image', $imageId)
-                ->where('id_produk', $productId)
-                ->first();
-
-            if (!$image) {
-                Log::error('Image not found', ['image_id' => $imageId, 'product_id' => $productId]);
-                return response()->json(['error' => 'Gambar tidak ditemukan'], 404);
-            }
-
-            $image->update(['is_primary' => true]);
-
-            Log::info('Primary image set successfully', ['image_id' => $imageId]);
-            return response()->json(['message' => 'Gambar cover berhasil diatur'], 200);
-        } catch (\Exception $e) {
-            Log::error('Error setting primary image: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            return response()->json(['error' => 'Gagal mengatur gambar cover: ' . $e->getMessage()], 500);
-        }
-    }
 }

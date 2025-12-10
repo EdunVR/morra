@@ -48,8 +48,17 @@ class CustomerTypeController extends Controller
     public function getData(Request $request)
     {
         $search = $request->get('search', '');
+        $outletId = $request->get('outlet_id');
 
-        $query = Tipe::query();
+        $query = Tipe::with('outlet');
+
+        // Apply outlet filter using trait
+        $query = $this->applyOutletFilter($query, 'id_outlet');
+
+        // Additional outlet filter from request
+        if ($outletId) {
+            $query->where('id_outlet', $outletId);
+        }
 
         // Search
         if ($search) {
@@ -67,6 +76,8 @@ class CustomerTypeController extends Controller
                 'id_tipe' => $type->id_tipe,
                 'nama_tipe' => $type->nama_tipe,
                 'keterangan' => $type->keterangan,
+                'id_outlet' => $type->id_outlet,
+                'outlet_name' => $type->outlet ? $type->outlet->nama_outlet : 'Semua Outlet',
                 'member_count' => \App\Models\Member::where('id_tipe', $type->id_tipe)->count(),
                 'produk_count' => \App\Models\ProdukTipe::where('id_tipe', $type->id_tipe)->count(),
                 'created_at' => $type->created_at ? $type->created_at->format('d/m/Y') : '-',
@@ -87,6 +98,7 @@ class CustomerTypeController extends Controller
         $validator = Validator::make($request->all(), [
             'nama_tipe' => 'required|string|max:255|unique:tipe,nama_tipe',
             'keterangan' => 'nullable|string',
+            'id_outlet' => 'nullable|exists:outlets,id_outlet',
         ]);
 
         if ($validator->fails()) {
@@ -100,7 +112,7 @@ class CustomerTypeController extends Controller
         try {
             DB::beginTransaction();
 
-            $tipe = Tipe::create($request->only(['nama_tipe', 'keterangan']));
+            $tipe = Tipe::create($request->only(['nama_tipe', 'keterangan', 'id_outlet']));
 
             DB::commit();
 
@@ -150,6 +162,7 @@ class CustomerTypeController extends Controller
         $validator = Validator::make($request->all(), [
             'nama_tipe' => 'required|string|max:255|unique:tipe,nama_tipe,' . $id . ',id_tipe',
             'keterangan' => 'nullable|string',
+            'id_outlet' => 'nullable|exists:outlets,id_outlet',
         ]);
 
         if ($validator->fails()) {
@@ -164,7 +177,7 @@ class CustomerTypeController extends Controller
             DB::beginTransaction();
 
             $tipe = Tipe::findOrFail($id);
-            $tipe->update($request->only(['nama_tipe', 'keterangan']));
+            $tipe->update($request->only(['nama_tipe', 'keterangan', 'id_outlet']));
 
             DB::commit();
 

@@ -45,7 +45,7 @@
           </div>
         </div>
         <div class="lg:col-span-3">
-          <select x-model="outletFilter" x-on:change="fetchData()" class="w-full rounded-xl border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-primary-200">
+          <select x-model="outletFilter" x-on:change="onOutletChange()" class="w-full rounded-xl border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-primary-200">
             <option value="ALL">Semua Outlet</option>
             <template x-for="o in outlets" :key="o"><option :value="o" x-text="o"></option></template>
           </select>
@@ -238,7 +238,7 @@
           <div x-show="currentStep === 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="text-sm text-slate-600">Outlet <span class="text-red-500">*</span></label>
-              <select x-model="form.outlet" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2">
+              <select x-model="form.outlet" x-on:change="onFormOutletChange()" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2">
                 <option value="">Pilih Outlet</option>
                 <template x-for="o in outlets" :key="o">
                   <option :value="o" x-text="o"></option>
@@ -718,6 +718,19 @@
           }
         },
 
+        async onOutletChange() {
+          // Reset type filter saat outlet berubah
+          this.typeFilter = 'ALL';
+          
+          // Fetch data produk
+          await this.fetchData();
+        },
+
+        async onFormOutletChange() {
+          // Reset form type saat outlet berubah
+          this.form.type = '';
+        },
+
         formatCurrency(n){ 
           return 'Rp '+Number(n||0).toLocaleString('id-ID'); 
         },
@@ -1139,6 +1152,12 @@
               this.form.images.splice(slot, 1, reader.result);
               this.form.imageFiles.splice(slot, 1, compressedFile);
               
+              // Jika ini gambar pertama yang diupload dan belum ada primary image, set sebagai primary
+              const hasExistingImages = this.form.images.filter(img => img).length > 1;
+              if (!hasExistingImages || this.form.primaryImageIndex === null || this.form.primaryImageIndex === undefined) {
+                this.form.primaryImageIndex = slot;
+              }
+              
               // Ensure we only keep 4 images
               this.form.images = this.form.images.slice(0, 4);
               this.form.imageFiles = this.form.imageFiles.slice(0, 4);
@@ -1247,8 +1266,19 @@
             
             // Adjust primary index if needed
             if (this.form.primaryImageIndex === index) {
-              // If we deleted the primary image, set first image as primary
-              this.form.primaryImageIndex = this.form.images.length > 0 ? 0 : null;
+              // If we deleted the primary image, set first available image as primary
+              const remainingImages = this.form.images.filter(img => img);
+              if (remainingImages.length > 0) {
+                // Find first non-empty slot
+                for (let i = 0; i < this.form.images.length; i++) {
+                  if (this.form.images[i]) {
+                    this.form.primaryImageIndex = i;
+                    break;
+                  }
+                }
+              } else {
+                this.form.primaryImageIndex = 0; // Reset to 0 if no images left
+              }
             } else if (this.form.primaryImageIndex > index) {
               // Adjust index if primary was after deleted image
               this.form.primaryImageIndex--;

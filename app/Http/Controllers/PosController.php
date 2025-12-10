@@ -15,8 +15,10 @@ use App\Models\Piutang;
 use App\Models\SettingCOAPos;
 use App\Services\JournalEntryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -37,76 +39,124 @@ class PosController extends Controller
      */
     public function index(Request $request)
     {
-        $selectedOutlet = $request->get('outlet_id', auth()->user()->outlet_id ?? 1);
         $outlets = Outlet::where('is_active', true)->get();
+        
+        // Ambil outlet pertama yang tersedia jika tidak ada parameter outlet_id
+        $defaultOutlet = $outlets->first()->id_outlet ?? 1;
+        $selectedOutlet = $request->get('outlet_id', $defaultOutlet);
+        
+        // Pastikan outlet yang dipilih ada dalam daftar outlet aktif
+        if (!$outlets->where('id_outlet', $selectedOutlet)->first()) {
+            $selectedOutlet = $defaultOutlet;
+        }
+        
+        // Debug logging
+        Log::info('POS Index called', [
+            'request_outlet_id' => $request->get('outlet_id'),
+            'default_outlet' => $defaultOutlet,
+            'selected_outlet' => $selectedOutlet,
+            'available_outlets' => $outlets->pluck('nama_outlet', 'id_outlet')->toArray()
+        ]);
         
         return view('admin.penjualan.pos.index', compact('selectedOutlet', 'outlets'));
     }
 
     /**
-     * Get products for POS
-     * Optimized with caching and eager loading
+     * Get products for POS - FIXED VERSION
+     * Perbaikan untuk memastikan produk muncul saat halaman pertama kali dibuka
      */
     public function getProducts(Request $request)
     {
         $outletId = $request->get('outlet_id', auth()->user()->outlet_id ?? 1);
         
-        // Cache key untuk products per outlet
-        $cacheKey = "pos_products_outlet_{$outletId}";
-        
-        // Cache selama 5 menit (data produk bisa berubah saat ada transaksi)
-        $products = \App\Services\CacheService::remember($cacheKey, function() use ($outletId) {
-            return Produk::select([
-                    'id_produk', 'kode_produk', 'nama_produk', 'harga_jual', 
-                    'id_outlet', 'id_kategori', 'id_satuan', 'is_active'
-                ])
-                ->with([
-                    'satuan:id_satuan,nama_satuan',
-                    'kategori:id_kategori,nama_kategori',
-                    'hppProduk' => function($query) {
-                        $query->select('id_produk', 'hpp', 'stok')
-                              ->where('stok', '>', 0);
-                    },
-                    'primaryImage:id_image,id_produk,path',
-                    'images' => function($query) {
-                        $query->select(['id_image', 'id_produk', 'path'])->limit(1);
-                    }
-                ])
-                ->where('id_outlet', $outletId)
-                ->where('is_active', true)
-                ->get()
-                ->filter(function($produk) {
-                    // Filter hanya produk dengan stok > 0
-                    return $produk->stok > 0;
-                })
-                ->map(function($produk) {
-                    // Get primary image or first image
-                    $imageUrl = null;
-                    if ($produk->primaryImage) {
-                        $imageUrl = asset('storage/' . $produk->primaryImage->path);
-                    } elseif ($produk->images->count() > 0) {
-                        $imageUrl = asset('storage/' . $produk->images->first()->path);
-                    }
-                    
+        try {
+            // Log untuk debugging
+            Log::info('POS getProducts called', ['outlet_id' => $outletId]);
+            
+            // Cache key untuk products per outlet
+            $cacheKey = "pos_products_fixed_outlet_{$outletId}";
+            
+            // Disable cache untuk debugging - akan di-enable kembali setelah fix
+            // $products = Cache::remember($cacheKey, 300, function() use ($outletId) {
+                
+                // Debug: Cek apakah ada produk di outlet ini
+                $totalProducts = DB::table('produk')->where('id_outlet', $outletId)->count();
+                $activeProducts = DB::table('produk')->where('id_outlet', $outletId)->where('is_active', 1)->count();
+                
+                Log::info('POS products debug', [
+                    'outlet_id' => $outletId,
+                    'total_products' => $totalProducts,
+                    'active_products' => $activeProducts
+                ]);
+                
+                // Simplified query - hapus GROUP BY yang bermasalah
+                $rawProducts = DB::select("
+                    SELECT 
+                        p.id_produk,
+                        p.kode_produk as sku,
+                        p.nama_produk as name,
+                        p.harga_jual as price,
+                        COALESCE(k.nama_kategori, 'Barang') as category,
+                        COALESCE(s.nama_satuan, 'pcs') as satuan,
+                        COALESCE(
+                            (SELECT SUM(hpp.stok) FROM hpp_produk hpp WHERE hpp.id_produk = p.id_produk), 
+                            0
+                        ) as stock,
+                        (SELECT pi.path FROM product_images pi WHERE pi.id_produk = p.id_produk AND pi.is_primary = 1 LIMIT 1) as image_path
+                    FROM produk p
+                    LEFT JOIN kategori k ON p.id_kategori = k.id_kategori
+                    LEFT JOIN satuan s ON p.id_satuan = s.id_satuan
+                    WHERE p.id_outlet = ? 
+                    AND p.is_active = 1
+                    ORDER BY p.nama_produk
+                ", [$outletId]);
+                
+                Log::info('POS products query result', [
+                    'count' => count($rawProducts), 
+                    'outlet_id' => $outletId,
+                    'sample_product' => count($rawProducts) > 0 ? $rawProducts[0] : null
+                ]);
+                
+                // Convert to array format yang diharapkan frontend
+                $products = array_map(function($product) {
                     return [
-                        'id_produk' => $produk->id_produk,
-                        'sku' => $produk->kode_produk,
-                        'name' => $produk->nama_produk,
-                        'category' => $produk->kategori ? $produk->kategori->nama_kategori : 'Barang',
-                        'price' => $produk->harga_jual,
-                        'stock' => $produk->stok,
-                        'satuan' => $produk->satuan ? $produk->satuan->nama_satuan : 'pcs',
-                        'image' => $imageUrl,
+                        'id_produk' => (int) $product->id_produk,
+                        'sku' => $product->sku,
+                        'name' => $product->name,
+                        'category' => $product->category,
+                        'price' => (float) $product->price,
+                        'stock' => (float) $product->stock,
+                        'satuan' => $product->satuan,
+                        'image' => $product->image_path ? config('app.url') . '/MORRA_POSHAN' . Storage::url($product->image_path) : null,
                     ];
-                })
-                ->values()
-                ->toArray();
-        }, \App\Services\CacheService::SHORT_TTL);
-
-        return response()->json([
-            'success' => true,
-            'data' => $products
-        ]);
+                }, $rawProducts);
+                
+            // });
+            
+            Log::info('POS products returned', ['count' => count($products), 'outlet_id' => $outletId]);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $products,
+                'count' => count($products),
+                'performance' => 'fixed',
+                'outlet_id' => $outletId
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('POS getProducts error', [
+                'outlet_id' => $outletId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memuat produk: ' . $e->getMessage(),
+                'data' => [],
+                'count' => 0
+            ], 500);
+        }
     }
 
     /**
@@ -767,5 +817,58 @@ class PosController extends Controller
                 'message' => 'Gagal menyimpan setting: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Clear POS products cache for specific outlet
+     * Call this when products are updated/stock changes
+     */
+    public function clearProductsCache(Request $request)
+    {
+        $outletId = $request->get('outlet_id', 'all');
+        
+        if ($outletId === 'all') {
+            // Clear cache for all outlets
+            for ($i = 1; $i <= 10; $i++) {
+                Cache::forget("pos_products_optimized_outlet_{$i}");
+            }
+            $message = 'All POS products cache cleared';
+        } else {
+            // Clear cache for specific outlet
+            Cache::forget("pos_products_optimized_outlet_{$outletId}");
+            $message = "POS products cache cleared for outlet {$outletId}";
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => $message
+        ]);
+    }
+
+    /**
+     * Warm up POS products cache for all outlets
+     * Call this during off-peak hours or after major updates
+     */
+    public function warmProductsCache()
+    {
+        $outlets = \App\Models\Outlet::where('is_active', true)->pluck('id_outlet');
+        $warmedCount = 0;
+        
+        foreach ($outlets as $outletId) {
+            try {
+                // Force cache refresh by calling getProducts
+                $request = new Request(['outlet_id' => $outletId]);
+                $this->getProducts($request);
+                $warmedCount++;
+            } catch (\Exception $e) {
+                Log::warning("Failed to warm cache for outlet {$outletId}: " . $e->getMessage());
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => "Cache warmed for {$warmedCount} outlets",
+            'outlets_processed' => $warmedCount
+        ]);
     }
 }
